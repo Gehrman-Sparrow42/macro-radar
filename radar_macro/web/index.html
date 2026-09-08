@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radar Makro | Türkiye Yatırım & Portföy İstihbarat Terminali</title>
+  <meta name="description" content="TCMB, T.C. Resmî Gazete, BDDK, Borsa İstanbul ve küresel merkez bankası kararlarının Türk yatırımlarına etkisi ve taktiksel portföy dağılımı." />
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <link rel="stylesheet" href="/static/css/terminal.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Terminal Başlığı ve Dünya Saatleri -->
+  <header class="terminal-header">
+    <div class="container">
+      <div class="header-row">
+        <div class="brand-section">
+          <div class="brand-icon">🇹🇷</div>
+          <div>
+            <div class="brand-title">
+              RADAR MAKRO
+              <span class="brand-tag">Türkiye Yatırım Terminali</span>
+            </div>
+            <div class="brand-sub">TCMB • T.C. Resmî Gazete • BDDK • SPK • BIST • Küresel Yayılım (Fed & ECB → TR)</div>
+          </div>
+        </div>
+
+        <!-- Canlı Finans Saatleri (İstanbul Ön Planda) -->
+        <div class="clocks-bar">
+          <div class="clock-item">
+            <span class="clock-zone">İstanbul (BIST)</span>
+            <span class="clock-time clock-time-ist" id="clock-ist">--:--:--</span>
+          </div>
+          <div class="clock-item">
+            <span class="clock-zone">New York (Fed)</span>
+            <span class="clock-time" id="clock-ny">--:--:--</span>
+          </div>
+          <div class="clock-item">
+            <span class="clock-zone">Londra</span>
+            <span class="clock-time" id="clock-lon">--:--:--</span>
+          </div>
+          <div class="clock-item">
+            <span class="clock-zone">Frankfurt (ECB)</span>
+            <span class="clock-time" id="clock-fra">--:--:--</span>
+          </div>
+        </div>
+
+        <!-- Veri Yenileme Butonu -->
+        <div class="header-actions">
+          <button id="btn-sync-trigger" class="btn-sync" title="Yeni Resmî Gazete, TCMB ve BDDK Verilerini Çek">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            İstihbarat Döngüsünü Başlat
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Ana Sekme Gezintisi (Modüler Bloomberg Standardı) -->
+    <div class="nav-tabs-bar">
+      <button id="tab-btn-feed" class="nav-tab active">
+        <span>📰</span> Makro İstihbarat Akışı
+      </button>
+      <button id="tab-btn-portfolio" class="nav-tab">
+        <span>💼</span> Portföy & Taktiksel Dağılım ("Şundan Çık ➔ Şuna Geç")
+        <span class="tab-badge-copilot">AI Portföy Yöneticisi</span>
+      </button>
+    </div>
+
+    <!-- ===================================================================
+         SEKME 1: MAKRO İSTİHBARAT AKIŞI
+         =================================================================== -->
+    <div id="view-feed" class="tab-view active">
+      <!-- Üst Metrik Kartları -->
+      <section class="metrics-section">
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <div class="metric-label">Kritik Kararlar & Şoklar</div>
+            <div class="metric-num critical" id="metric-critical">-</div>
+            <div class="metric-sub">Ani kur baskısı, zorunlu karşılık veya sistemik riskler</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Analiz Edilen Politika Sinyali</div>
+            <div class="metric-num total" id="metric-total">-</div>
+            <div class="metric-sub">Yurt içi kararnameler ve küresel yayılım bültenleri</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Piyasa Uyarıları & Riskler</div>
+            <div class="metric-num warning" id="metric-warning">-</div>
+            <div class="metric-sub">TL, BIST ve tahvil faizlerinde sıkılaşma sinyalleri</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Takip Edilen Kaynaklar</div>
+            <div class="metric-num sources" id="metric-sources">14</div>
+            <div class="metric-sub">Resmî Gazete, TCMB, BDDK, SPK, Dünya, Fed, ECB, BoE</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Filtreleme Araç Çubuğu -->
+      <section class="toolbar-section">
+        <div class="toolbar-card">
+          <div class="toolbar-row">
+            <div class="search-box">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="search-input" class="search-input" placeholder="BIST, FROTO, GARAN, Dolar/TL, TCMB, faiz, zorunlu karşılık, BDDK, Resmî Gazete..." />
+            </div>
+
+            <!-- Kapsam / Coğrafya -->
+            <div class="filter-group">
+              <span class="filter-title">Yatırım Kapsamı:</span>
+              <button class="pill-btn active" data-jurisdiction="all">🇹🇷 Tüm Yayılımlar</button>
+              <button class="pill-btn" data-jurisdiction="Turkey">🏛️ Yurt İçi Doğrudan (TCMB, BDDK & Resmî Gazete)</button>
+              <button class="pill-btn" data-jurisdiction="Global">🌐 Küresel Yayılım (Fed/ECB/Emtia → TR)</button>
+            </div>
+          </div>
+
+          <div class="toolbar-row toolbar-row-sub">
+            <!-- Politika Duruşu Filtresi -->
+            <div class="filter-group">
+              <span class="filter-title">Politika Duruşu:</span>
+              <button class="pill-btn active hawkish" data-stance="ŞAHİN">ŞAHİN (Sıkılaştırma / Faiz Artışı)</button>
+              <button class="pill-btn active dovish" data-stance="GÜVERCİN">GÜVERCİN (Gevşeme / Likidite)</button>
+              <button class="pill-btn active pivot" data-stance="EKSEN DEĞİŞİMİ">EKSEN DEĞİŞİMİ (Kriz / Müdahale)</button>
+              <button class="pill-btn active neutral" data-stance="NÖTR">NÖTR</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bülten ve Kararname Akışı -->
+      <section class="feed-section-container">
+        <div class="feed-header">
+          <div class="feed-title">
+            Canlı Kararname, Tebliğ, BIST Şirket Etkisi & İstihbarat Akışı
+            <span class="bulletin-count-badge" id="bulletin-count">Yükleniyor...</span>
+          </div>
+        </div>
+
+        <div id="bulletin-list">
+          <!-- JavaScript ile dinamik kartlar buraya yüklenir -->
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================================================================
+         SEKME 2: PORTFÖYÜM & TAKTİKSEL VARLIK DAĞILIMI ("Şundan Çık, Şuna Geç")
+         =================================================================== -->
+    <div id="view-portfolio" class="tab-view">
+      <!-- Aktif Makro Rejim Teşhis Panosu -->
+      <section class="portfolio-regime-card">
+        <div class="regime-header">
+          <div>
+            <div class="regime-pretitle">GÜNCEL MAKROEKONOMİK REJİM VE FAİZ DİNAMİĞİ</div>
+            <h2 id="portfolio-regime-title" class="regime-title">Rejim Belirleniyor...</h2>
+          </div>
+          <div id="regime-badge" class="regime-pill">ANALİZ EDİLİYOR</div>
+        </div>
+
+        <div class="regime-stats-bar">
+          <div class="stat-pill">
+            <span class="stat-name">İncelenen Sinyal:</span>
+            <span id="stat-signal-count" class="stat-val">-</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-name">Sıkılaşma (Şahin):</span>
+            <span id="stat-hawkish-pct" class="stat-val stat-val-danger">-%</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-name">Genişleme (Güvercin):</span>
+            <span id="stat-dovish-pct" class="stat-val stat-val-success">-%</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-name">Eksen Değişimi:</span>
+            <span id="stat-pivot-pct" class="stat-val stat-val-warning">-%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Öne Çıkan Taktiksel Hamle: "Şundan Çık ➔ Şuna Geç" -->
+      <section class="copilot-action-section">
+        <div class="section-title-highlight">
+          <span>⚡</span>
+          <span>TAKİKSEL REBALANSING: ŞUNDAN ÇIK ➔ ŞUNA GEÇ DİREKTİFLERİ</span>
+        </div>
+        <div id="tactical-actions-container">
+          <!-- Dinamik Taktiksel Hamle Kartları -->
+        </div>
+      </section>
+
+      <!-- Çift Katmanlı Makro Portföy Gerekçelendirmesi -->
+      <section class="portfolio-rationale-section">
+        <div class="rationale-grid">
+          <div class="rationale-card simple">
+            <div class="rationale-badge">💡 BASİT VE NET ANLATIM (HERKES İÇİN)</div>
+            <div id="portfolio-simple-rationale" class="rationale-text">Yükleniyor...</div>
+          </div>
+          <div class="rationale-card technical">
+            <div class="rationale-badge">🔬 DERİN TEKNİK VE STRATEJİK GEREKÇE (PROFESYONELLER İÇİN)</div>
+            <div id="portfolio-tech-rationale" class="rationale-text">Yükleniyor...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kurumsal Makro Bellek ve Geçmiş 3 Ayın Seyri (L2 Compaction) -->
+      <section class="portfolio-memory-section">
+        <div class="memory-header-row">
+          <div class="section-title-highlight section-title-purple">
+            <span>🧠</span>
+            <span>KURUMSAL MAKRO BELLEK: GEÇMİŞ 3 AYIN POLİTİKA MİRASI (L2 COMPACTION)</span>
+          </div>
+          <span class="memory-token-badge">⚡ %96+ Token Tasarrufu (350 Token Özeti)</span>
+        </div>
+        <div id="memory-digests-container" class="memory-digests-grid">
+          <!-- JavaScript ile dinamik 3 aylık bellek kartları buraya yüklenir -->
+        </div>
+      </section>
+
+      <!-- Portföy Ağırlıkları: Mevcut vs Önerilen Karşılaştırma & Ayarlayıcı -->
+      <section class="portfolio-allocation-section">
+        <div class="allocation-grid">
+          <!-- Sol Sütun: Kullanıcı Portföy Ayarlayıcısı -->
+          <div class="allocation-card">
+            <div class="alloc-card-header">
+              <h3>💼 Mevcut Varlık Dağılımınız</h3>
+              <span class="alloc-total-tag" id="weights-total-tag">Toplam: %100</span>
+            </div>
+            <p class="alloc-card-intro">
+              Kişisel portföy oranlarınızı kaydırarak giriniz. Yapay zeka bu oranlara göre size özel taktiksel çıkış/geçiş önerisi hesaplayacaktır.
+            </p>
+
+            <form id="portfolio-form">
+              <div class="asset-input-row">
+                <div class="asset-meta">
+                  <span class="asset-icon">📈</span>
+                  <div>
+                    <label for="slider-bist" class="asset-title">Borsa İstanbul (BIST Hisseleri)</label>
+                    <div class="asset-desc">Hisse senetleri, hisse fonları</div>
+                  </div>
+                </div>
+                <div class="asset-control">
+                  <input type="range" min="0" max="100" step="1" id="slider-bist" class="alloc-slider" title="BIST Hisse Oranı Ayarlayıcısı" placeholder="0" aria-label="BIST Hisse Oranı Ayarlayıcısı" />
+                  <div class="input-pct-wrapper">
+                    <label for="num-bist" class="sr-only">BIST Hisse Oranı Yüzdesi</label>
+                    <input type="number" min="0" max="100" id="num-bist" class="alloc-number" title="BIST Hisse Oranı Yüzdesi" placeholder="%" aria-label="BIST Hisse Oranı Yüzdesi" />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="asset-input-row">
+                <div class="asset-meta">
+                  <span class="asset-icon">🏦</span>
+                  <div>
+                    <label for="slider-mevduat" class="asset-title">TL Mevduat & Para Piyasası Fonu (PPF)</label>
+                    <div class="asset-desc">Risksiz gecelik getiri, vadeli TL</div>
+                  </div>
+                </div>
+                <div class="asset-control">
+                  <input type="range" min="0" max="100" step="1" id="slider-mevduat" class="alloc-slider" title="TL Mevduat Oranı Ayarlayıcısı" placeholder="0" aria-label="TL Mevduat Oranı Ayarlayıcısı" />
+                  <div class="input-pct-wrapper">
+                    <label for="num-mevduat" class="sr-only">TL Mevduat Oranı Yüzdesi</label>
+                    <input type="number" min="0" max="100" id="num-mevduat" class="alloc-number" title="TL Mevduat Oranı Yüzdesi" placeholder="%" aria-label="TL Mevduat Oranı Yüzdesi" />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="asset-input-row">
+                <div class="asset-meta">
+                  <span class="asset-icon">💵</span>
+                  <div>
+                    <label for="slider-doviz" class="asset-title">Döviz Nakit (Dolar & Euro) & KKM</label>
+                    <div class="asset-desc">Yabancı para cinsi likidite</div>
+                  </div>
+                </div>
+                <div class="asset-control">
+                  <input type="range" min="0" max="100" step="1" id="slider-doviz" class="alloc-slider" title="Döviz Nakit Oranı Ayarlayıcısı" placeholder="0" aria-label="Döviz Nakit Oranı Ayarlayıcısı" />
+                  <div class="input-pct-wrapper">
+                    <label for="num-doviz" class="sr-only">Döviz Nakit Oranı Yüzdesi</label>
+                    <input type="number" min="0" max="100" id="num-doviz" class="alloc-number" title="Döviz Nakit Oranı Yüzdesi" placeholder="%" aria-label="Döviz Nakit Oranı Yüzdesi" />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="asset-input-row">
+                <div class="asset-meta">
+                  <span class="asset-icon">🏛️</span>
+                  <div>
+                    <label for="slider-dibs" class="asset-title">DİBS & Hazine Eurobond</label>
+                    <div class="asset-desc">Devlet tahvili, kuponlu Hazine tahvilleri</div>
+                  </div>
+                </div>
+                <div class="asset-control">
+                  <input type="range" min="0" max="100" step="1" id="slider-dibs" class="alloc-slider" title="DİBS & Tahvil Oranı Ayarlayıcısı" placeholder="0" aria-label="DİBS & Tahvil Oranı Ayarlayıcısı" />
+                  <div class="input-pct-wrapper">
+                    <label for="num-dibs" class="sr-only">DİBS & Tahvil Oranı Yüzdesi</label>
+                    <input type="number" min="0" max="100" id="num-dibs" class="alloc-number" title="DİBS & Tahvil Oranı Yüzdesi" placeholder="%" aria-label="DİBS & Tahvil Oranı Yüzdesi" />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="asset-input-row">
+                <div class="asset-meta">
+                  <span class="asset-icon">🪙</span>
+                  <div>
+                    <label for="slider-altin" class="asset-title">Gram Altın & Kıymetli Madenler</label>
+                    <div class="asset-desc">Fiziki altın, altın sertifikası (ALTINS1)</div>
+                  </div>
+                </div>
+                <div class="asset-control">
+                  <input type="range" min="0" max="100" step="1" id="slider-altin" class="alloc-slider" title="Gram Altın Oranı Ayarlayıcısı" placeholder="0" aria-label="Gram Altın Oranı Ayarlayıcısı" />
+                  <div class="input-pct-wrapper">
+                    <label for="num-altin" class="sr-only">Gram Altın Oranı Yüzdesi</label>
+                    <input type="number" min="0" max="100" id="num-altin" class="alloc-number" title="Gram Altın Oranı Yüzdesi" placeholder="%" aria-label="Gram Altın Oranı Yüzdesi" />
+                    <span>%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="alloc-actions-row">
+                <button type="submit" id="btn-save-portfolio" class="btn-save-portfolio">
+                  💾 Portföyü Kaydet ve Taktiksel Hamleyi Yenile
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Sağ Sütun: Hedef Dağılım ve Karşılaştırma Grafiği -->
+          <div class="allocation-card">
+            <div class="alloc-card-header">
+              <h3>🎯 Makro Rejim Uyarınca Önerilen Dağılım</h3>
+              <span class="alloc-total-tag alloc-target-tag">Hedef: %100</span>
+            </div>
+            <p class="alloc-card-intro">
+              Son 30 günlük TCMB kararları, Resmî Gazete düzenlemeleri ve küresel merkez bankası yayılımlarına göre optimize edilmiş hedef sepet.
+            </p>
+
+            <div id="comparison-bars-container">
+              <!-- Dinamik Karşılaştırma Barları -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BIST 30/100 Şirket Bazlı Seçici Rehberlik -->
+      <section class="bist-guidance-section">
+        <div class="section-title-highlight section-title-blue">
+          <span>🎯</span>
+          <span>BU MAKRO REJİMDE BIST 30/100 ŞİRKETLERİNDE NE YAPMALI?</span>
+        </div>
+
+        <div class="guidance-grid">
+          <!-- Tercih Edilmesi / Tutulması Gereken Şirketler -->
+          <div class="guidance-card favored">
+            <div class="guidance-header">
+              <div class="guidance-icon">🟢</div>
+              <div>
+                <div class="guidance-title guidance-title-success">Ağırlığı Artırılması / Tercih Edilmesi Gereken Hisseler</div>
+                <div class="guidance-sub">Mevcut faiz, kur ve regülasyon ortamından kârlılık çıkaranlar</div>
+              </div>
+            </div>
+            <div id="bist-favored-list" class="guidance-list">
+              <!-- Dinamik Şirketler -->
+            </div>
+          </div>
+
+          <!-- Ağırlığı Azaltılması / Kaçınılması Gereken Şirketler -->
+          <div class="guidance-card avoid">
+            <div class="guidance-header">
+              <div class="guidance-icon">🔴</div>
+              <div>
+                <div class="guidance-title guidance-title-danger">Ağırlığı Azaltılması / Dikkat Edilmesi Gereken Hisseler</div>
+                <div class="guidance-sub">Yüksek finansman faizi veya kredi kısıtlamalarıyla marjı baskılananlar</div>
+              </div>
+            </div>
+            <div id="bist-avoid-list" class="guidance-list">
+              <!-- Dinamik Şirketler -->
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Detay Açılır Penceresi (Modal / Slide-Over) -->
+  <div id="bulletin-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div id="modal-badges" class="modal-badges-container"></div>
+          <h2 id="modal-title" class="modal-title-text"></h2>
+        </div>
+        <button id="modal-close" class="modal-close-btn" title="Kapat">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 1. Katman: Basit ve Anlaşılır Özet -->
+        <div class="simple-summary-box">
+          <div class="section-title section-title-sky">💡 Basitçe Ne Demek? (Herkes İçin Özet)</div>
+          <p id="modal-simple" class="simple-summary-text"></p>
+        </div>
+
+        <!-- 2. Katman: Derin Teknik ve Kurumsal Analiz -->
+        <div class="technical-analysis-box">
+          <div class="section-title section-title-indigo">🔬 Teknik Analiz & Finansal Mekanizma (Profesyoneller İçin)</div>
+          <p id="modal-technical" class="technical-analysis-text"></p>
+        </div>
+
+        <!-- BIST 30/100 Şirket ve Sektör Duyarlılık Etkisi -->
+        <div class="section-box">
+          <div class="section-title">🎯 BIST 30/100 Şirket & Sektör Duyarlılığı (Hisse Bazlı Etki)</div>
+          <div id="modal-bist-tickers"></div>
+        </div>
+
+        <!-- Türk Yatırım Araçlarına Yönsel Etki -->
+        <div class="section-box">
+          <div class="section-title">🇹🇷 Türk Yatırım Araçlarına Yönsel Etki</div>
+          <div id="modal-assets"></div>
+        </div>
+
+        <!-- Portföy Korunma ve Pozisyon Alma Rehberi -->
+        <div class="section-box">
+          <div class="section-title">🛡️ Türk Portföyleri İçin Taktiksel Pozisyon Alma & Korunma Rehberi</div>
+          <div id="modal-actions"></div>
+        </div>
+
+        <!-- Orijinal Belge Metni -->
+        <div class="section-box">
+          <div class="section-title">📄 Orijinal Belge / Resmî Kararname Metni</div>
+          <div id="modal-raw-text" class="raw-text-box"></div>
+          <div class="modal-footer-meta">
+            <a id="modal-link" href="#" target="_blank" class="modal-source-link">🔗 Resmî Kaynak Belgesini Tarayıcıda Aç</a>
+            <span id="modal-hash" class="modal-hash-text"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bildirim Kutusu (Toast) -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
