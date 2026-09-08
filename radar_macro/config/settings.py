@@ -23,7 +23,7 @@ class MacroSettings(BaseSettings):
     GEMINI_MODEL: str = "gemini-flash-latest"
     OPENAI_MODEL_FAST: str = "gpt-4o-mini"
     OPENAI_MODEL_HEAVY: str = "gpt-4o"
-    OPENAI_MODEL_REASONING: str = "o1"
+    OPENAI_MODEL_REASONING: str = "gpt-4o"
     DEFAULT_MODEL: str = "gemini-flash-latest"
     LLM_ROUTING_STRATEGY: str = "smart_hybrid"
 

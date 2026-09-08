@@ -45,7 +45,7 @@ class LLMEngine:
         self.gemini_model = gemini_model or getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
         self.openai_model_fast = openai_model_fast or getattr(settings, "OPENAI_MODEL_FAST", "gpt-4o-mini")
         self.openai_model_heavy = openai_model_heavy or getattr(settings, "OPENAI_MODEL_HEAVY", "gpt-4o")
-        self.openai_model_reasoning = openai_model_reasoning or getattr(settings, "OPENAI_MODEL_REASONING", "o1")
+        self.openai_model_reasoning = openai_model_reasoning or getattr(settings, "OPENAI_MODEL_REASONING", "gpt-4o")
 
         self.max_retries = max_retries or getattr(settings, "MAX_RETRIES", 3)
         self.backoff_factor = backoff_factor or getattr(settings, "BACKOFF_FACTOR", 1.5)
@@ -261,9 +261,15 @@ class LLMEngine:
         }
 
         if is_reasoning_model:
-            call_kwargs["max_completion_tokens"] = 4000
+            call_kwargs["max_completion_tokens"] = 1500
+            # Sınırlı muhakeme eforu: reasoning_effort='low' gizli düşünce token tüketimini minimuma indirir
+            try:
+                call_kwargs["reasoning_effort"] = "low"
+            except Exception:
+                pass
         else:
             call_kwargs["temperature"] = temperature
+            call_kwargs["max_tokens"] = 1000
 
         response = self._openai_client.chat.completions.create(**call_kwargs)
 
