@@ -209,7 +209,7 @@ def get_bulletins(
     jurisdiction: str | None = Query(None, description="Filtre: Türkiye, Küresel veya Tümü"),
     category: str | None = Query(None, description="Kategori filtresi"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(30, ge=1, le=100),
+    page_size: int = Query(100, ge=1, le=500),
 ) -> dict[str, Any]:
     """Filtrelenmiş Türkiye odaklı makro istihbarat bültenleri."""
     sev_list = [s.strip().upper() for s in severity.split(",")] if severity else None

@@ -10,7 +10,7 @@ export const state = {
     severities: ["CRITICAL", "WARNING", "OPPORTUNITY", "INFO"],
     category: "all",
     page: 1,
-    pageSize: 30,
+    pageSize: 100,
   },
   metrics: {},
   bulletins: [],

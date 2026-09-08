@@ -77,7 +77,7 @@ function renderBulletins(data) {
   const countEl = document.getElementById("bulletin-count");
   if (!container) return;
 
-  if (countEl) countEl.textContent = `${data.total} analiz bülteni`;
+  if (countEl) countEl.textContent = `${data.items ? data.items.length : 0} / ${data.total} analiz bülteni`;
 
   if (!data.items || data.items.length === 0) {
     container.innerHTML = `
@@ -87,6 +87,8 @@ function renderBulletins(data) {
         <div style="font-size: 0.85rem; margin-top: 6px;">Filtreleri esnetebilir veya "İstihbarat Döngüsünü Başlat" butonuna tıklayarak Resmî Gazete, TCMB ve BDDK akışını güncelleyebilirsiniz.</div>
       </div>
     `;
+    const oldLm = document.getElementById("load-more-container");
+    if (oldLm) oldLm.remove();
     return;
   }
 
@@ -177,6 +179,43 @@ function renderBulletins(data) {
       if (found) openModal(found);
     });
   });
+
+  // Daha Fazla Yükle (Pagination / Load More) Butonu
+  const oldLm = document.getElementById("load-more-container");
+  if (oldLm) oldLm.remove();
+
+  if (data.items && data.items.length < data.total) {
+    const loadMoreDiv = document.createElement("div");
+    loadMoreDiv.id = "load-more-container";
+    loadMoreDiv.style.cssText = "text-align: center; padding: 24px 0; margin-top: 10px;";
+    loadMoreDiv.innerHTML = `
+      <button id="btn-load-more" class="pill-btn" style="padding: 12px 28px; font-size: 0.9rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; cursor: pointer; border-radius: 8px; transition: all 0.2s;">
+        ⬇️ Daha Fazla Bülten Yükle (${data.items.length} / ${data.total} Gösteriliyor)
+      </button>
+    `;
+    container.after(loadMoreDiv);
+
+    document.getElementById("btn-load-more").addEventListener("click", async () => {
+      const btn = document.getElementById("btn-load-more");
+      if (btn) btn.textContent = "⏳ Yükleniyor...";
+      state.filters.page = (state.filters.page || 1) + 1;
+      try {
+        const moreData = await MacroAPI.getBulletins(state.filters);
+        const newItems = moreData.items || [];
+        state.bulletins = [...state.bulletins, ...newItems];
+        renderBulletins({ ...moreData, items: state.bulletins });
+      } catch (err) {
+        console.error("Daha fazla bülten yüklenemedi:", err);
+        if (btn) btn.textContent = "⚠️ Yükleme hatası, tekrar deneyin";
+      }
+    });
+  } else if (data.total > 0) {
+    const allLoadedDiv = document.createElement("div");
+    allLoadedDiv.id = "load-more-container";
+    allLoadedDiv.style.cssText = "text-align: center; padding: 16px 0; font-size: 0.8rem; color: #64748b;";
+    allLoadedDiv.textContent = `✓ Tüm bültenler görüntülendi (Toplam ${data.total} adet)`;
+    container.after(allLoadedDiv);
+  }
 }
 
 // ---------------------------------------------------------------------------
