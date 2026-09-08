@@ -10,6 +10,7 @@ from fastapi import BackgroundTasks, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 # Ensure path resolution
@@ -361,6 +362,56 @@ def trigger_memory_compaction(background_tasks: BackgroundTasks) -> dict[str, st
     from radar_macro.backfill import run_historical_backfill
     background_tasks.add_task(run_historical_backfill)
     return {"status": "started", "message": "Aylık makro bellek derleme döngüsü başlatıldı."}
+
+
+# ---------------------------------------------------------------------------
+# Antigravity Agent Executive Desk Endpoints (Ajan Masası)
+# ---------------------------------------------------------------------------
+
+class AgentMemoCreateRequest(BaseModel):
+    author: str = "Antigravity AI (Chief Investment Strategist)"
+    headline: str
+    macro_verdict: str
+    summary_guidance: str
+    technical_analysis: str
+    favored_tickers: list[dict[str, str]] = []
+    pressured_tickers: list[dict[str, str]] = []
+    tactical_allocation: dict[str, float] = {}
+    confidence_score: float = 0.96
+
+
+@app.get("/api/agent/memo")
+def get_agent_memo() -> dict[str, Any]:
+    """En güncel Antigravity Stratejist Raporunu döndürür."""
+    from radar_core.core.database import get_session, get_latest_agent_memo
+    with get_session() as session:
+        memo = get_latest_agent_memo(session)
+        if not memo:
+            return {"memo": None, "message": "Henüz kayıtlı ajan strateji raporu bulunmamaktadır."}
+        return {"memo": memo.model_dump(), "status": "success"}
+
+
+@app.post("/api/agent/memo")
+def create_agent_memo(payload: AgentMemoCreateRequest) -> dict[str, Any]:
+    """Antigravity Ajanı tarafından üretilen yeni strateji notunu veritabanına ve ekrana yazar."""
+    from radar_core.core.database import get_session, save_agent_memo
+    from radar_core.core.models import AgentStrategyMemo
+
+    memo_obj = AgentStrategyMemo(
+        author=payload.author,
+        headline=payload.headline,
+        macro_verdict=payload.macro_verdict,
+        summary_guidance=payload.summary_guidance,
+        technical_analysis=payload.technical_analysis,
+        favored_tickers=payload.favored_tickers,
+        pressured_tickers=payload.pressured_tickers,
+        tactical_allocation=payload.tactical_allocation,
+        confidence_score=payload.confidence_score,
+        created_at=datetime.now(timezone.utc),
+    )
+    with get_session() as session:
+        saved = save_agent_memo(session, memo_obj)
+        return {"status": "success", "id": saved.id, "memo": saved.model_dump()}
 
 
 # ---------------------------------------------------------------------------

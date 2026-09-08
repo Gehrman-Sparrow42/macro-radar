@@ -188,3 +188,51 @@ class MacroMemoryDigest(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
 
+
+class AgentStrategyMemo(SQLModel, table=True):
+    """
+    Antigravity Yapay Zeka Baş Stratejist Masası (Agent Executive Desk) Raporu.
+    Ajanın dış API anahtarı yakmadan, doğrudan kendi derin muhakemesiyle hazırlayıp
+    veritabanına ve terminal ekranına enjekte ettiği kurumsal strateji notu.
+    """
+    __tablename__ = "agent_strategy_memo"
+
+    id: int | None = Field(default=None, primary_key=True)
+    author: str = Field(
+        default="Antigravity AI (Chief Investment Strategist)",
+        nullable=False
+    )
+    headline: str = Field(
+        nullable=False,
+        description="Rapor manşeti / stratejik yönlendirme"
+    )
+    macro_verdict: str = Field(
+        nullable=False,
+        description="Rejim ve faiz patikası teşhisi (örn: 'TCMB Şahin Çıpa / Pozitif Reel Getiri')"
+    )
+    summary_guidance: str = Field(
+        nullable=False,
+        description="Yatırımcıya doğrudan sade dille yönlendirme"
+    )
+    technical_analysis: str = Field(
+        nullable=False,
+        description="WACC, getiri eğrisi, Sharpe optimizasyonu, kur dengesi ve sektör değerlemeleri"
+    )
+    favored_tickers: list[dict[str, str]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False)
+    )
+    pressured_tickers: list[dict[str, str]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False)
+    )
+    tactical_allocation: dict[str, float] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False)
+    )
+    confidence_score: float = Field(default=0.96)
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+

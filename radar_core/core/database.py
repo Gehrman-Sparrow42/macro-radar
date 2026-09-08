@@ -9,6 +9,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 
 from radar_core.config.settings import get_settings
 from radar_core.core.models import (
+    AgentStrategyMemo,
     AnalysisResult,
     MacroMemoryDigest,
     RawData,
@@ -243,5 +244,25 @@ def get_all_memory_digests(
 ) -> list[MacroMemoryDigest]:
     """Retrieve historical memory digests ordered chronologically or by start_date descending."""
     stmt = select(MacroMemoryDigest).order_by(desc(MacroMemoryDigest.start_date)).limit(limit)
+    return list(session.exec(stmt).all())
+
+
+def save_agent_memo(session: Session, memo: AgentStrategyMemo) -> AgentStrategyMemo:
+    """Save a new AgentStrategyMemo record."""
+    session.add(memo)
+    session.commit()
+    session.refresh(memo)
+    return memo
+
+
+def get_latest_agent_memo(session: Session) -> AgentStrategyMemo | None:
+    """Retrieve the most recent AgentStrategyMemo."""
+    stmt = select(AgentStrategyMemo).order_by(desc(AgentStrategyMemo.created_at)).limit(1)
+    return session.exec(stmt).first()
+
+
+def get_all_agent_memos(session: Session, limit: int = 5) -> list[AgentStrategyMemo]:
+    """Retrieve recent AgentStrategyMemos."""
+    stmt = select(AgentStrategyMemo).order_by(desc(AgentStrategyMemo.created_at)).limit(limit)
     return list(session.exec(stmt).all())
 

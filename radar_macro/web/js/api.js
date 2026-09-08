@@ -93,5 +93,21 @@ export const MacroAPI = {
     if (!res.ok) throw new Error(`Test credentials HTTP ${res.status}`);
     return await res.json();
   },
+
+  async getAgentMemo() {
+    const res = await fetch(`${API_BASE}/api/agent/memo`);
+    if (!res.ok) throw new Error(`Agent memo HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async postAgentMemo(payload) {
+    const res = await fetch(`${API_BASE}/api/agent/memo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Post memo HTTP ${res.status}`);
+    return await res.json();
+  },
 };
 

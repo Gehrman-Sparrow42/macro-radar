@@ -315,9 +315,75 @@ async function loadPortfolioData() {
     state.portfolio = copilot;
     renderPortfolio(copilot);
     await loadMemoryDigests();
+    await loadAgentMemo();
   } catch (err) {
     console.error("Portföy verisi yüklenemedi:", err);
     showToast(`Portföy analizi yüklenemedi: ${err.message}`, true);
+  }
+}
+
+async function loadAgentMemo() {
+  const headlineEl = document.getElementById("agent-headline");
+  if (!headlineEl) return;
+
+  try {
+    const res = await MacroAPI.getAgentMemo();
+    const memo = res.memo;
+    if (!memo) {
+      headlineEl.textContent = "Henüz Stratejist Raporu Bulunmuyor";
+      if (document.getElementById("agent-simple-guidance")) {
+        document.getElementById("agent-simple-guidance").textContent = "Antigravity Ajanı henüz güncel bir baş stratejist notu kaydetmedi. Chat üzerinden 'Antigravity analizi güncelle' diyerek anında yeni bir analiz ürettirebilirsiniz.";
+      }
+      if (document.getElementById("agent-tech-analysis")) {
+        document.getElementById("agent-tech-analysis").textContent = "Beklemede...";
+      }
+      return;
+    }
+
+    if (document.getElementById("agent-author-title")) {
+      document.getElementById("agent-author-title").textContent = (memo.author || "ANTIGRAVITY BAŞ STRATEJİST MASASI").toUpperCase();
+    }
+    headlineEl.textContent = memo.headline || "Taktiksel Makro Değerlendirme";
+    if (document.getElementById("agent-verdict")) {
+      document.getElementById("agent-verdict").textContent = `📌 Makro Teşhis: ${memo.macro_verdict || "Dengeli"}`;
+    }
+    if (document.getElementById("agent-memo-date")) {
+      const dt = memo.created_at ? new Date(memo.created_at).toLocaleString("tr-TR") : "Güncel";
+      document.getElementById("agent-memo-date").textContent = `🕒 Rapor: ${dt}`;
+    }
+    if (document.getElementById("agent-simple-guidance")) {
+      document.getElementById("agent-simple-guidance").textContent = memo.summary_guidance || "-";
+    }
+    if (document.getElementById("agent-tech-analysis")) {
+      document.getElementById("agent-tech-analysis").textContent = memo.technical_analysis || "-";
+    }
+
+    const tickersContainer = document.getElementById("agent-tickers-container");
+    if (tickersContainer) {
+      const favs = memo.favored_tickers || [];
+      const prss = memo.pressured_tickers || [];
+
+      let html = "";
+      favs.forEach((f) => {
+        html += `
+          <div class="agent-ticker-tag fav">
+            <div class="agent-ticker-symbol">🟢 ${f.ticker || f} ${f.name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${f.name})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${f.reason || "Pozitif bilanço ve makro kalkan."}</div>
+          </div>
+        `;
+      });
+      prss.forEach((p) => {
+        html += `
+          <div class="agent-ticker-tag prs">
+            <div class="agent-ticker-symbol">🔴 ${p.ticker || p} ${p.name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${p.name})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${p.reason || "Yüksek finansman maliyeti veya marj baskısı."}</div>
+          </div>
+        `;
+      });
+      tickersContainer.innerHTML = html || "<div style='color: #94a3b8; font-size: 0.85rem;'>Hisse yönlendirmesi mevcut değil.</div>";
+    }
+  } catch (err) {
+    console.error("Ajan strateji raporu yüklenemedi:", err);
   }
 }
 
