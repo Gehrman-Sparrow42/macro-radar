@@ -202,30 +202,33 @@ def generate_period_digest(
             session.close()
 
 
-def get_active_memory_context(months: int = 3) -> str:
+def get_active_memory_context(months: int = 6) -> str:
     """
     Portföy copilotuna veya yeni bülten analizlerine enjekte edilmek üzere
-    son 3 ayın sıkıştırılmış makro bellek özetini üretir (~300-450 token).
+    son 6 ayın sıkıştırılmış makro bellek özetini üretir (~500-750 token).
     Bu sayede binlerce sayfalık eski haber yerine sadece damıtılmış bilgi modele aktarılır.
     """
     with get_session() as session:
         stmt = (
             select(MacroMemoryDigest)
             .where(MacroMemoryDigest.period_type == "monthly")
-            .order_by(col(MacroMemoryDigest.start_date).asc())
+            .order_by(col(MacroMemoryDigest.start_date).desc())
             .limit(months)
         )
         digests = session.exec(stmt).all()
 
     if not digests:
         with get_session() as session:
-            stmt = select(MacroMemoryDigest).order_by(col(MacroMemoryDigest.start_date).asc()).limit(months)
+            stmt = select(MacroMemoryDigest).order_by(col(MacroMemoryDigest.start_date).desc()).limit(months)
             digests = session.exec(stmt).all()
 
     if not digests:
         return "Geçmiş dönem makro bellek kaydı bulunmamaktadır."
 
-    lines = ["--- KURUMSAL MAKRO BELLEK & GEÇMİŞ DÖNEM POLİTİKA EĞİLİMİ (L2 COMPACTION) ---"]
+    # Kronolojik olarak eskiden yeniye doğru sırala
+    digests = sorted(digests, key=lambda d: d.start_date)
+
+    lines = ["--- KURUMSAL MAKRO BELLEK & GEÇMİŞ 6 AYLIK POLİTİKA MİRASI (L2 COMPACTION) ---"]
     for d in digests:
         stats = d.stance_distribution or {}
         hwk = stats.get("hawkish_pct", 0)

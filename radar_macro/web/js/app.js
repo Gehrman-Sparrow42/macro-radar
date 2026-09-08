@@ -332,8 +332,9 @@ async function loadMemoryDigests() {
       return;
     }
 
-    const monthly = digests.filter((d) => d.period_type === "monthly").slice(0, 3);
-    const itemsToShow = monthly.length > 0 ? monthly : digests.slice(0, 3);
+    const monthly = digests.filter((d) => d.period_type === "monthly").slice(0, 6);
+    let itemsToShow = monthly.length > 0 ? monthly : digests.slice(0, 6);
+    itemsToShow.sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""));
 
     container.innerHTML = itemsToShow
       .map((d) => {

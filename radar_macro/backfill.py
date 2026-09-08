@@ -1,4 +1,4 @@
-"""Radar Makro: Geçmiş 3 Ayı (Haziran, Temmuz, Ağustos 2026) Geriye Dönük İnceleme ve Yükleme Motoru.
+"""Radar Makro: Geçmiş 6 Ayı (Mart, Nisan, Mayıs, Haziran, Temmuz, Ağustos 2026) Geriye Dönük İnceleme ve Yükleme Motoru.
 
 TCMB, T.C. Resmî Gazete, BDDK, SPK ve küresel merkez bankası kararlarını
 veritabanına işler ve otomatik aylık makro bellek özetlerini (MacroMemoryDigest) üretir.
@@ -25,9 +25,224 @@ from radar_macro.memory_engine import generate_period_digest
 logger = logging.getLogger("radar_macro.backfill")
 
 # ---------------------------------------------------------------------------
-# Geçmiş 3 Aylık Derin Makroekonomik Veri Kümesi (Haziran, Temmuz, Ağustos 2026)
+# Geçmiş 6 Aylık Derin Makroekonomik Veri Kümesi (Mart - Ağustos 2026)
 # ---------------------------------------------------------------------------
 HISTORICAL_MACRO_ITEMS: list[dict[str, Any]] = [
+    # =======================================================================
+    # MART 2026 (MARCH 2026)
+    # =======================================================================
+    {
+        "source_name": "TCMB_Basin_Duyurulari",
+        "url": "https://www.tcmb.gov.tr/duyuru/2026/mart-ppk-karari",
+        "title": "TCMB PPK Kararı: Politika Faizi 500 Baz Puan Artırılarak %50 Seviyesine Yükseltildi",
+        "date_str": "2026-03-21T14:00:00Z",
+        "content": (
+            "Para Politikası Kurulu, enflasyon görünümündeki bozulmayı dikkate alarak politika faizi olan "
+            "bir hafta vadeli repo ihale faiz oranının %45'ten %50 düzeyine yükseltilmesine karar vermiştir. "
+            "Kurul ayrıca operasyonel çerçevede değişikliğe giderek gecelik borçlanma ve borç verme oranlarının "
+            "politika faizine kıyasla -/+ 300 baz puanlık marj ile belirlenmesine karar vermiştir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "CRITICAL",
+        "simple_summary": "Merkez Bankası sürpriz bir adımla politika faizini %45'ten %50'ye fırlattı! TL mevduat faizleri %55'in üzerine tırmandı, Türk Lirası koruma altına alındı.",
+        "technical_analysis": "Önden yüklemeli 500 bps faiz artışı negatif reel faiz algısını kırmış, TL getiri eğrisini dikleştirmiştir. BIST şirketleri için sermaye maliyeti (Ke) fırlamış, borçlu sanayi hisselerinde F/K sıkışması başlamıştır.",
+        "favored": ["ENKAI", "BIMAS", "TL Mevduat & PPF"],
+        "pressured": ["EKGYO", "HEKTS", "PETKM", "Borçlu Sanayi"],
+    },
+    {
+        "source_name": "Resmi_Gazete_Mevzuat",
+        "url": "https://www.resmigazete.gov.tr/eskiler/2026/03/20260306-1.htm",
+        "title": "TCMB Tebliği: Kredi Büyümesine Dayalı Zorunlu Karşılık ve Kredi Sınırlandırması",
+        "date_str": "2026-03-06T03:00:00Z",
+        "content": (
+            "TCMB tarafından yayımlanan tebliğ ile TL ticari krediler için aylık büyüme sınırı %2,5'ten %2'ye, "
+            "ihtiyaç kredilerinde ise %3'ten %2'ye düşürülmüştür. Kredi kartı nakit avans çekimlerinde komisyon ve "
+            "faiz oranları yukarı çekilerek iç tüketim frenlenmiştir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "WARNING",
+        "simple_summary": "Bankaların kredi verme muslukları iyice kısıldı. Kredi kartı nakit avansı zorlaştırıldı; amaç aşırı harcamayı durdurup enflasyonu dizginlemek.",
+        "technical_analysis": "Seçici kredi kısıtlamaları iç talep kaynaklı cari açık ve enflasyon baskısını dizginlerken perakende ticaret hacmini baskılar. Şirketlerin işletme sermayesi döngüsü uzar.",
+        "favored": ["Nakit Zengini Şirketler", "TCELL"],
+        "pressured": ["Tüketici Elektroniği", "Otomotiv Bayileri", "SOKM"],
+    },
+    {
+        "source_name": "BDDK_Kararlari",
+        "url": "https://www.bddk.org.tr/Duyuru/2026/03-kredi-karti-asgari-odeme",
+        "title": "BDDK Kararı: Kredi Kartı Limit ve Asgari Ödeme Oranlarında Sıkılaştırma",
+        "date_str": "2026-03-27T10:30:00Z",
+        "content": (
+            "BDDK, finansal tüketici borçluluğunun kontrolü amacıyla yüksek limitli kredi kartlarında asgari ödeme oranını "
+            "%40 olarak belirlemiş ve lüks tüketim harcamalarında taksitlendirmeyi sınırlamıştır."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "WARNING",
+        "simple_summary": "Kredi kartı asgari ödeme oranları yükseltildi, lüks harcamalarda taksitler yasaklandı. Borçla lüks yaşama fren geldi.",
+        "technical_analysis": "Bireysel kaldıraç oranlarının törpülenmesi hanehalkı tasarruf eğilimini artırır, bankacılık takipli alacak (NPL) riskini kontrol altına alır.",
+        "favored": ["GARAN", "AKBNK"],
+        "pressured": ["Dayanıklı Tüketim", "AVM & Perakende"],
+    },
+    {
+        "source_name": "FederalReserve_Press",
+        "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260320a.htm",
+        "title": "Fed FOMC Kararı: Faiz %5.25-5.50 Bandında Sabit, Erken Faiz İndirimi Masadan Kalktı",
+        "date_str": "2026-03-20T18:00:00Z",
+        "content": (
+            "The Federal Reserve kept interest rates unchanged at 5.25%-5.50%. Chair Powell emphasized that the committee "
+            "needs greater confidence that inflation is moving sustainably toward 2% before initiating rate reductions."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "INFO",
+        "simple_summary": "Amerikan Merkez Bankası Fed faizi indirmedi; erken indirim umutlarını erteleyerek doların güçlü kalmasını sağladı.",
+        "technical_analysis": "Küresel dolar likiditesinin pahalı kalması gelişmekte olan piyasa (EM) tahvil spreadlerini geniş tutmaktadır. Türkiye dış borç çevirme maliyeti yüksek seyreder.",
+        "favored": ["Döviz Pozisyonlu İhracatçılar", "THYAO"],
+        "pressured": ["Gelişmekte Olan Ülke Para Birimleri"],
+    },
+
+    # =======================================================================
+    # NİSAN 2026 (APRIL 2026)
+    # =======================================================================
+    {
+        "source_name": "TCMB_Basin_Duyurulari",
+        "url": "https://www.tcmb.gov.tr/duyuru/2026/nisan-ppk-karari",
+        "title": "TCMB PPK Kararı: Politika Faizi %50 Düzeyinde Sabit, Likidite Sterilizasyonu Hızlandırıldı",
+        "date_str": "2026-04-25T14:00:00Z",
+        "content": (
+            "Para Politikası Kurulu, politika faizini %50 düzeyinde sabit tutmuştur. Mart ayındaki parasal sıkılaştırmanın "
+            "finansal koşullar üzerindeki etkileri yakından izlenmektedir. Likidite fazlasını soğurmak amacıyla "
+            "sterilizasyon araçlarının çeşitlendirilerek etkin kullanılacağı teyit edilmiştir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "CRITICAL",
+        "simple_summary": "TCMB faizi %50'de tuttu; piyasadaki fazla Türk Lirası'nı çekerek gecelik faizlerin düşmesini engelledi. Mevduat faizleri gücünü koruyor.",
+        "technical_analysis": "Aktarım mekanizmasını diri tutmak amacıyla repo ve depo alım operasyonlarıyla piyasa faizleri politika faizi tavanına yapışık tutulmaktadır.",
+        "favored": ["TL Mevduat & PPF", "BIMAS"],
+        "pressured": ["EKGYO", "İnşaat GYO"],
+    },
+    {
+        "source_name": "Resmi_Gazete_Mevzuat",
+        "url": "https://www.resmigazete.gov.tr/eskiler/2026/04/20260416-1.htm",
+        "title": "TCMB Zorunlu Karşılık Tebliği: YP Mevduat İçin Karşılık Oranları Artırıldı",
+        "date_str": "2026-04-16T03:00:00Z",
+        "content": (
+            "T.C. Resmî Gazete'de yayımlanan TCMB tebliği ile yabancı para mevduat için zorunlu karşılık oranları "
+            "tüm vadelerde 200 baz puan artırılmış, Kur Korumalı Mevduat (KKM) hesaplarının standart TL mevduata "
+            "dönüştürülmesine yönelik bankalara aylık asgari hedef zorunluluğu getirilmiştir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "WARNING",
+        "simple_summary": "Dolar ve Euro hesapları için bankalara fazladan karşılık zorunluluğu getirildi. KKM'den çıkan paranın dövize değil doğrudan Türk Lirası mevduata gitmesi hedefleniyor.",
+        "technical_analysis": "Bankaların YP fonlama maliyeti artarken TL mevduat faizleri yukarı yönde desteklenir. Ters dolarizasyon süreci hızlandırılmaktadır.",
+        "favored": ["TL Varlıklar", "AKBNK", "ISCTR"],
+        "pressured": ["Döviz Pozisyonu Açığı Olanlar"],
+    },
+    {
+        "source_name": "Dunya_Gazetesi_Makro",
+        "url": "https://www.dunya.com/ekonomi/kamuda-tasarruf-paketi-hazirliklari-haberi-20260422",
+        "title": "Hazine ve Maliye Bakanlığı: Kamuda Tasarruf Paketi ile Bütçe Disiplini Güçlendiriliyor",
+        "date_str": "2026-04-22T09:15:00Z",
+        "content": (
+            "Hazine ve Maliye Bakanlığı, para politikasını destekleyecek güçlü bir maliye politikası koordinasyonu "
+            "kapsamında Kamuda Tasarruf ve Verimlilik Paketi hazırlıklarının tamamlandığını açıkladı. Cari harcamalar "
+            "ve kamu yatırımlarında seçici tasarruf hedeflenmektedir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "INFO",
+        "simple_summary": "Hükümet kamu harcamalarını kısacağını ve bütçeyi sıkacağını açıkladı. Para politikasının yükünü hafifletecek mali disiplin adımı geldi.",
+        "technical_analysis": "Mali konsolidasyon (fiscal consolidation) risk primini (CDS) düşürerek Hazine borçlanma faizlerini geriletir. Enflasyon beklentilerini çıpalar.",
+        "favored": ["DİBS & Hazine Eurobond", "TUPRS"],
+        "pressured": ["Kamu Müteahhitleri"],
+    },
+    {
+        "source_name": "ECB_Press",
+        "url": "https://www.ecb.europa.eu/press/pr/date/2026/html/ecb.mp260411~a91.en.html",
+        "title": "ECB Faiz Kararı: Faizler Sabit Tutuldu, Haziran İndirimi İçin Güçlü Mesaj Verildi",
+        "date_str": "2026-04-11T12:45:00Z",
+        "content": (
+            "The Governing Council kept the three key ECB interest rates unchanged. President Lagarde noted that if "
+            "incoming inflation data continues to align with projections, an easing of current monetary policy "
+            "restrictions would be appropriate in the upcoming meetings."
+        ),
+        "stance": "GÜVERCİN",
+        "severity": "OPPORTUNITY",
+        "simple_summary": "Avrupa Merkez Bankası faizleri sabit bıraktı ama yaz aylarında faiz indireceğinin net işaretini verdi. Türk ihracatçısı için canlanma beklentisi doğdu.",
+        "technical_analysis": "Euro bölgesinde beklenen faiz indirimi Türkiye'nin bir numaralı ticaret ortağında resesyon riskini azaltır. BIST otomotiv ve beyaz eşya ihracatçılarının sipariş görünümü iyileşir.",
+        "favored": ["FROTO", "TOASO", "ARCLK"],
+        "pressured": ["Dolar Endeksi"],
+    },
+
+    # =======================================================================
+    # MAYIS 2026 (MAY 2026)
+    # =======================================================================
+    {
+        "source_name": "BloombergHT_Haber",
+        "url": "https://www.bloomberght.com/tuik-mayis-enflasyonu-zirveyi-gordu-20260503",
+        "title": "TÜİK Enflasyon Verisi: Yıllık TÜFE %75,45 ile Döngünün Zirvesine Ulaştı",
+        "date_str": "2026-05-03T10:00:00Z",
+        "content": (
+            "TÜİK verilerine göre Mayıs ayında yıllık tüketici enflasyonu (TÜFE) %75,45 seviyesine ulaşarak tahminler "
+            "doğrultusunda tepe noktasını gördü. Ekonomi yönetimi ve TCMB, Haziran ayından itibaren baz etkisi ve "
+            "sıkı para politikasının gecikmeli aktarımıyla hızlı bir dezenflasyon sürecinin başlayacağını bildirdi."
+        ),
+        "stance": "EKSEN DEĞİŞİMİ",
+        "severity": "CRITICAL",
+        "simple_summary": "Enflasyon yüzde 75,45 ile tarihi zirvesini gördü! Uzmanlar ve Merkez Bankası en kötünün geride kaldığını, bundan sonra enflasyonun düşüşe geçeceğini söylüyor.",
+        "technical_analysis": "Enflasyon patikasında tepe noktasının (peak inflation) teyit edilmesi, tahvil piyasasında getiri eğrisinin uzun ucuna (10Y DİBS) kurumsal yabancı girişini tetiklemiştir. Dezenflasyon fiyatlaması başlar.",
+        "favored": ["DİBS Tahvil", "BIMAS", "TCELL"],
+        "pressured": ["Kısa Vadeli Borçlular", "Fiyat Geçişkenliği Düşük İmalat"],
+    },
+    {
+        "source_name": "Resmi_Gazete_Mevzuat",
+        "url": "https://www.resmigazete.gov.tr/eskiler/2026/05/20260513-1.htm",
+        "title": "Cumhurbaşkanı Genelgesi: Kamuda Tasarruf ve Verimlilik Paketi Yürürlüğe Girdi",
+        "date_str": "2026-05-13T03:00:00Z",
+        "content": (
+            "Resmî Gazete'de yayımlanan Cumhurbaşkanlığı Genelgesi ile kamu kurumlarında 3 yıl boyunca yeni taşıt ve "
+            "hizmet binası alımı durdurulmuş, lojman ve temsil giderleri sınırlandırılmış, zorunlu olmayan yatırım "
+            "ödenekleri dondurulmuştur. Kamu harcamalarında katı disiplin başlamıştır."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "WARNING",
+        "simple_summary": "Kamuda Tasarruf Paketi resmen yürürlüğe girdi! 3 yıl boyunca devlete yeni araba, bina alınmayacak; israf önlenecek.",
+        "technical_analysis": "Mali disiplinin somut genelgeyle desteklenmesi TCMB'nin dezenflasyon hedefine kredibilite kazandırır. Türkiye risk priminin (CDS) 300 baz puanın altına gerilemesine zemin hazırlar.",
+        "favored": ["DİBS & Hazine Eurobond", "GARAN", "AKBNK"],
+        "pressured": ["Kamu İhalesi Alan Şirketler"],
+    },
+    {
+        "source_name": "BloombergHT_Haber",
+        "url": "https://www.bloomberght.com/sp-turkiyenin-kredi-notunu-b-artiya-yukseltti-20260504",
+        "title": "Kredi Derecelendirme (S&P): Türkiye'nin Kredi Notu 'B'den 'B+'ya Yükseltildi, Görünüm Pozitif",
+        "date_str": "2026-05-04T22:00:00Z",
+        "content": (
+            "Uluslararası kredi derecelendirme kuruluşu S&P Global, Türkiye'nin uzun vadeli kredi notunu 'B'den 'B+'ya "
+            "yükseltti ve görünümünü 'Pozitif' olarak korudu. Gerekçe olarak ortodoks para politikasının dış dengelenmeyi "
+            "sağlaması, TCMB rezervlerindeki toparlanma ve KKM'den TL mevduata sağlıklı geçiş gösterildi."
+        ),
+        "stance": "GÜVERCİN",
+        "severity": "OPPORTUNITY",
+        "simple_summary": "Uluslararası derecelendirme kuruluşu S&P Türkiye'nin kredi notunu artırdı! Yabancı yatırımcının Türkiye'ye olan güveni arttı.",
+        "technical_analysis": "Not artırımı Türk bankalarının yurt dışı sendikasyon ve sermaye benzeri borçlanma maliyetlerini 75-100 bps aşağı çeker. Bankacılık hisseleri önderliğinde BIST rallisi beslenir.",
+        "favored": ["GARAN", "AKBNK", "ISCTR", "YKBNK"],
+        "pressured": ["TL Aleyhine Spekülatif Pozisyonlar"],
+    },
+    {
+        "source_name": "TCMB_Basin_Duyurulari",
+        "url": "https://www.tcmb.gov.tr/duyuru/2026/mayis-ppk-karari",
+        "title": "TCMB PPK Kararı: Faiz %50'de Sabit Bırakıldı, Kararlı Sıkı Duruş Devam Ediyor",
+        "date_str": "2026-05-23T14:00:00Z",
+        "content": (
+            "Para Politikası Kurulu, politika faizini %50 düzeyinde sabit tutmuştur. Kurul, enflasyonda zirvenin "
+            "görüldüğünü ve yılın ikinci yarısında başlayacak belirgin düşüşün teyidi için sıkı parasal duruşun "
+            "kesintisiz süreceğini beyan etmiştir."
+        ),
+        "stance": "ŞAHİN",
+        "severity": "INFO",
+        "simple_summary": "Merkez Bankası faizi %50'de sabit tuttu; 'Enflasyon zirve yaptı ama gevşemek yok, kararlıyız' mesajı verdi.",
+        "technical_analysis": "Reel faiz garantisi korunurken TL mevduat faizleri bileşik %60 seviyelerinde risksiz kalkan işlevi görmeye devam etmektedir.",
+        "favored": ["TL Mevduat & PPF", "ENKAI", "BIMAS"],
+        "pressured": ["Kaldıraçlı Sanayi"],
+    },
+
     # =======================================================================
     # HAZİRAN 2026 (JUNE 2026)
     # =======================================================================
@@ -304,11 +519,41 @@ def run_historical_backfill() -> dict[str, Any]:
     logger.info("Geçmiş %d adet analiz kaydı veritabanına işlendi.", inserted_count)
 
     # -----------------------------------------------------------------------
-    # Aylık Makro Bellek Sıkıştırmalarını Üret (June, July, August 2026)
+    # Aylık Makro Bellek Sıkıştırmalarını Üret (Mart - Ağustos 2026 + Rolling 180D)
     # -----------------------------------------------------------------------
     digests_created = []
 
-    # 1. Haziran 2026
+    # 1. Mart 2026
+    d_march = generate_period_digest(
+        start_date=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
+        end_date=datetime(2026, 3, 31, 23, 59, 59, tzinfo=timezone.utc),
+        period_key="2026-03",
+        period_label="Mart 2026 Makroekonomik Bellek Özeti",
+        period_type="monthly",
+    )
+    digests_created.append(d_march.period_key)
+
+    # 2. Nisan 2026
+    d_april = generate_period_digest(
+        start_date=datetime(2026, 4, 1, 0, 0, 0, tzinfo=timezone.utc),
+        end_date=datetime(2026, 4, 30, 23, 59, 59, tzinfo=timezone.utc),
+        period_key="2026-04",
+        period_label="Nisan 2026 Makroekonomik Bellek Özeti",
+        period_type="monthly",
+    )
+    digests_created.append(d_april.period_key)
+
+    # 3. Mayıs 2026
+    d_may = generate_period_digest(
+        start_date=datetime(2026, 5, 1, 0, 0, 0, tzinfo=timezone.utc),
+        end_date=datetime(2026, 5, 31, 23, 59, 59, tzinfo=timezone.utc),
+        period_key="2026-05",
+        period_label="Mayıs 2026 Makroekonomik Bellek Özeti",
+        period_type="monthly",
+    )
+    digests_created.append(d_may.period_key)
+
+    # 4. Haziran 2026
     d_june = generate_period_digest(
         start_date=datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
         end_date=datetime(2026, 6, 30, 23, 59, 59, tzinfo=timezone.utc),
@@ -318,7 +563,7 @@ def run_historical_backfill() -> dict[str, Any]:
     )
     digests_created.append(d_june.period_key)
 
-    # 2. Temmuz 2026
+    # 5. Temmuz 2026
     d_july = generate_period_digest(
         start_date=datetime(2026, 7, 1, 0, 0, 0, tzinfo=timezone.utc),
         end_date=datetime(2026, 7, 31, 23, 59, 59, tzinfo=timezone.utc),
@@ -328,7 +573,7 @@ def run_historical_backfill() -> dict[str, Any]:
     )
     digests_created.append(d_july.period_key)
 
-    # 3. Ağustos 2026
+    # 6. Ağustos 2026
     d_august = generate_period_digest(
         start_date=datetime(2026, 8, 1, 0, 0, 0, tzinfo=timezone.utc),
         end_date=datetime(2026, 8, 31, 23, 59, 59, tzinfo=timezone.utc),
@@ -338,17 +583,17 @@ def run_historical_backfill() -> dict[str, Any]:
     )
     digests_created.append(d_august.period_key)
 
-    # 4. Kümülatif 90 Günlük Hareketli Bellek (Rolling 90D)
+    # 7. Kümülatif 180 Günlük / 6 Aylık Hareketli Bellek (Rolling 180D)
     d_rolling = generate_period_digest(
-        start_date=datetime(2026, 6, 1, 0, 0, 0, tzinfo=timezone.utc),
+        start_date=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc),
         end_date=datetime(2026, 9, 8, 23, 59, 59, tzinfo=timezone.utc),
-        period_key="rolling_90d",
-        period_label="Son 90 Günlük Kümülatif Politika Seyri",
+        period_key="rolling_180d",
+        period_label="Son 180 Günlük (6 Aylık) Kümülatif Politika Seyri",
         period_type="rolling",
     )
     digests_created.append(d_rolling.period_key)
 
-    logger.info("Aylık Makro Bellek Sentezleri Tamamlandı: %s", digests_created)
+    logger.info("6 Aylık Makro Bellek Sentezleri Tamamlandı: %s", digests_created)
 
     return {
         "status": "success",

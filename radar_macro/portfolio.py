@@ -308,13 +308,13 @@ def compute_tactical_copilot(
             "Dengeli varlık dağılımı korunmalıdır."
         )
 
-    # Canlı OpenAI o1 Destekli Taktiksel Portföy Denetimi (3 Aylık Makro Bellek Entegrasyonu)
+    # Canlı OpenAI GPT-4o Destekli Taktiksel Portföy Denetimi (6 Aylık Makro Bellek Entegrasyonu)
     memory_context = ""
     try:
         from radar_core.core.llm_engine import LLMEngine
         from radar_macro.memory_engine import get_active_memory_context
         engine = LLMEngine()
-        memory_context = get_active_memory_context(months=3)
+        memory_context = get_active_memory_context(months=6)
 
         if getattr(engine, "openai_api_key", None) or getattr(engine, "gemini_api_key", None):
             top_headlines = [a.summary_title for a, _ in recent_analyses[:5]]
@@ -324,9 +324,9 @@ def compute_tactical_copilot(
                 f"Aktif Makro Rejim: {regime}\n\n"
                 f"{memory_context}\n\n"
                 f"Son Güncel Kararlar ve Bültenler:\n" + "\n".join(f"- {h}" for h in top_headlines) + "\n\n"
-                f"GÖREV: 100.000 TL+ yatırım büyüklüğü için geçmiş 3 aylık politika mirasını ve son bültenleri sentezleyerek:\n"
+                f"GÖREV: 100.000 TL+ yatırım büyüklüğü için geçmiş 6 aylık politika mirasını ve son bültenleri sentezleyerek:\n"
                 f"1. Basit özet (halk diliyle ne yapmalı)\n"
-                f"2. Teknik analiz (WACC, risksiz faiz, borsa çarpanları, kur dengesi ve 3 aylık kümülatif aktarım mekanizması)\n"
+                f"2. Teknik analiz (WACC, risksiz faiz, borsa çarpanları, kur dengesi ve 6 aylık kümülatif aktarım mekanizması)\n"
                 f"StructuredAnalysisOutput formatında oluştur."
             )
             ai_res = engine.analyze_structured(prompt=prompt_review, task_type="portfolio_copilot")
