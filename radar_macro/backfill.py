@@ -486,9 +486,17 @@ def run_historical_backfill() -> dict[str, Any]:
             session.refresh(raw_data)
 
             # BIST Etiketleri
+            fav_items = [
+                f if isinstance(f, dict) else {"ticker": str(f), "reason": "Makro politika kararıyla pozitif uyumlu."}
+                for f in item.get("favored", [])
+            ]
+            pres_items = [
+                p if isinstance(p, dict) else {"ticker": str(p), "reason": "Sıkılaşma / maliyet baskısı altında temkinli olunmalı."}
+                for p in item.get("pressured", [])
+            ]
             bist_tags = {
-                "favored": item.get("favored", []),
-                "pressured": item.get("pressured", []),
+                "favored": fav_items,
+                "pressured": pres_items,
             }
 
             metrics = {

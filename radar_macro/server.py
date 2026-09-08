@@ -201,6 +201,37 @@ def get_metrics() -> dict[str, Any]:
     return summary
 
 
+def _normalize_bist_tickers(bist_dict: Any) -> dict[str, list[dict[str, str]]]:
+    """Ensures every favored/pressured element is a valid dict with ticker and reason keys."""
+    if not isinstance(bist_dict, dict):
+        return {"favored": [], "pressured": []}
+    favored: list[dict[str, str]] = []
+    for f in bist_dict.get("favored", []):
+        if isinstance(f, dict):
+            favored.append({
+                "ticker": str(f.get("ticker", "BIST")),
+                "reason": str(f.get("reason", "Makro politika kararı ile pozitif uyumlu."))
+            })
+        elif isinstance(f, str) and f.strip():
+            favored.append({
+                "ticker": f.strip(),
+                "reason": "Düzenleme ve makro politika ile sektörel pozitif ayrışma potansiyeli."
+            })
+    pressured: list[dict[str, str]] = []
+    for p in bist_dict.get("pressured", []):
+        if isinstance(p, dict):
+            pressured.append({
+                "ticker": str(p.get("ticker", "BIST")),
+                "reason": str(p.get("reason", "Sıkılaşma / maliyet baskısı altında temkinli olunmalı."))
+            })
+        elif isinstance(p, str) and p.strip():
+            pressured.append({
+                "ticker": p.strip(),
+                "reason": "Sıkılaşma veya talep daralması baskısı altında temkinli olunmalı."
+            })
+    return {"favored": favored, "pressured": pressured}
+
+
 @app.get("/api/bulletins")
 def get_bulletins(
     search: str | None = Query(None, description="Arama terimi"),
@@ -289,6 +320,9 @@ def get_bulletins(
                 category=item_cat,
                 text_content=raw.title + " " + (raw.content_text or ""),
             )
+
+        # Normalize bist_tickers (garantee dict objects with ticker and reason)
+        bist_tickers = _normalize_bist_tickers(bist_tickers)
 
         filtered.append({
             "id": analysis.id,

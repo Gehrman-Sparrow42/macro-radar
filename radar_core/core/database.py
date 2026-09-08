@@ -172,6 +172,7 @@ def get_analysis_results(
             | (AnalysisResult.detailed_reasoning.ilike(term))
             | (RawData.title.ilike(term))
             | (RawData.source_name.ilike(term))
+            | (RawData.content_text.ilike(term))
         )
 
     results = session.exec(query.limit(limit)).all()

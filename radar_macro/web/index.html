@@ -119,7 +119,8 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="text" id="search-input" class="search-input" placeholder="BIST, FROTO, GARAN, Dolar/TL, TCMB, faiz, zorunlu karşılık, BDDK, Resmî Gazete..." />
+              <input type="text" id="search-input" class="search-input" placeholder="BIST, FROTO, GARAN, Dolar/TL, TCMB, faiz, fon, BES, zorunlu karşılık, BDDK, Resmî Gazete..." />
+              <button id="btn-clear-search" class="search-clear-btn" title="Aramayı Temizle" aria-label="Temizle">✕</button>
             </div>
 
             <!-- Kapsam / Coğrafya -->
@@ -128,6 +129,20 @@
               <button class="pill-btn active" data-jurisdiction="all">🇹🇷 Tüm Yayılımlar</button>
               <button class="pill-btn" data-jurisdiction="Turkey">🏛️ Yurt İçi Doğrudan (TCMB, BDDK & Resmî Gazete)</button>
               <button class="pill-btn" data-jurisdiction="Global">🌐 Küresel Yayılım (Fed/ECB/Emtia → TR)</button>
+            </div>
+          </div>
+
+          <!-- Hızlı Tematik Mevzuat ve Yasa Filtreleri -->
+          <div class="toolbar-row toolbar-row-presets">
+            <span class="filter-title" style="color: #a78bfa; font-weight: 600;">⚡ Hızlı Mevzuat & Yasa Filtreleri:</span>
+            <div class="preset-chips-container">
+              <button class="preset-chip active" data-search-preset="">Tümü (Sıfırla)</button>
+              <button class="preset-chip" data-search-preset="fon">📜 Fonları Değiştiren Yasalar & TEFAS</button>
+              <button class="preset-chip" data-search-preset="faiz">🏦 Faizi Değiştiren Kararlar & TCMB</button>
+              <button class="preset-chip" data-search-preset="kredi">💳 Krediler & BDDK Sınırları</button>
+              <button class="preset-chip" data-search-preset="stopaj">💰 Stopaj & Vergi Mevzuatı</button>
+              <button class="preset-chip" data-search-preset="teşvik">🛡️ Teşvik & Sanayi Kararnameleri</button>
+              <button class="preset-chip" data-search-preset="zorunlu karşılık">🔒 Zorunlu Karşılıklar</button>
             </div>
           </div>
 

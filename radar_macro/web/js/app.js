@@ -121,8 +121,14 @@ function renderBulletins(data) {
 
       let bistChipsHtml = "";
       if (favoredList.length > 0 || pressuredList.length > 0) {
-        const favChips = favoredList.slice(0, 3).map((f) => `<span class="ticker-chip favored">🟢 ${f.ticker}</span>`).join("");
-        const presChips = pressuredList.slice(0, 2).map((p) => `<span class="ticker-chip pressured">🔴 ${p.ticker}</span>`).join("");
+        const favChips = favoredList.slice(0, 3).map((f) => {
+          const ticker = (typeof f === "object" && f !== null) ? (f.ticker || f.name || "BIST") : String(f);
+          return `<span class="ticker-chip favored">🟢 ${ticker}</span>`;
+        }).join("");
+        const presChips = pressuredList.slice(0, 2).map((p) => {
+          const ticker = (typeof p === "object" && p !== null) ? (p.ticker || p.name || "BIST") : String(p);
+          return `<span class="ticker-chip pressured">🔴 ${ticker}</span>`;
+        }).join("");
         bistChipsHtml = `
           <div class="bist-tickers-row">
             <span style="font-size: 0.72rem; color: #94a3b8; align-self: center; font-weight: 600; margin-right: 4px;">BIST Etkisi:</span>
@@ -273,9 +279,11 @@ function openModal(item) {
       if (favored.length > 0) {
         html += `<div style="font-size: 0.82rem; font-weight: 700; color: #34d399; margin-bottom: 6px;">🟢 Olumlu Etkilenmesi Beklenen Şirketler:</div>`;
         favored.forEach((f) => {
+          const ticker = (typeof f === "object" && f !== null) ? (f.ticker || f.name || "BIST") : String(f);
+          const reason = (typeof f === "object" && f !== null) ? (f.reason || "Makro politika kararı ile pozitif ayrışma potansiyeli.") : "Düzenleme ve makro politika kararı ile sektörel uyumlu.";
           html += `
             <div class="bist-modal-card favored">
-              <b>${f.ticker}:</b> ${f.reason}
+              <b>${ticker}:</b> ${reason}
             </div>
           `;
         });
@@ -283,9 +291,11 @@ function openModal(item) {
       if (pressured.length > 0) {
         html += `<div style="font-size: 0.82rem; font-weight: 700; color: #f87171; margin-top: 10px; margin-bottom: 6px;">🔴 Baskılanması / Temkinli Olunması Gerekenler:</div>`;
         pressured.forEach((p) => {
+          const ticker = (typeof p === "object" && p !== null) ? (p.ticker || p.name || "BIST") : String(p);
+          const reason = (typeof p === "object" && p !== null) ? (p.reason || "Yüksek maliyet veya talep daralması baskısı.") : "Sıkılaşma veya maliyet artışı nedeniyle temkinli olunmalı.";
           html += `
             <div class="bist-modal-card pressured">
-              <b>${p.ticker}:</b> ${p.reason}
+              <b>${ticker}:</b> ${reason}
             </div>
           `;
         });
@@ -825,18 +835,76 @@ function initEvents() {
   const syncBtn = document.getElementById("btn-sync-trigger");
   if (syncBtn) syncBtn.addEventListener("click", triggerSurveillance);
 
-  // Arama Kutusu (Debounce ile)
+  // Arama Kutusu (Debounce ile) & Temizleme Butonu
   const searchInput = document.getElementById("search-input");
+  const clearBtn = document.getElementById("btn-clear-search");
   let searchTimeout = null;
+
+  function updateClearBtnVisibility() {
+    if (clearBtn && searchInput) {
+      clearBtn.style.display = searchInput.value.trim().length > 0 ? "inline-flex" : "none";
+    }
+  }
+
+  function syncPresetChips(currentVal) {
+    const valLower = (currentVal || "").trim().toLowerCase();
+    document.querySelectorAll("[data-search-preset]").forEach((c) => {
+      const presetVal = (c.dataset.searchPreset || "").trim().toLowerCase();
+      if (valLower === presetVal || (!valLower && !presetVal)) {
+        c.classList.add("active");
+      } else {
+        c.classList.remove("active");
+      }
+    });
+  }
+
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
+      const val = e.target.value;
+      updateClearBtnVisibility();
+      syncPresetChips(val);
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
-        updateFilters({ search: e.target.value.trim(), page: 1 });
+        updateFilters({ search: val.trim(), page: 1 });
         refreshData();
       }, 300);
     });
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        clearTimeout(searchTimeout);
+        updateFilters({ search: searchInput.value.trim(), page: 1 });
+        refreshData();
+      }
+    });
   }
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+        searchInput.focus();
+      }
+      updateClearBtnVisibility();
+      syncPresetChips("");
+      updateFilters({ search: "", page: 1 });
+      refreshData();
+    });
+  }
+
+  // Hızlı Tematik Mevzuat & Yasa Filtre Çipleri
+  document.querySelectorAll("[data-search-preset]").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const presetVal = chip.dataset.searchPreset || "";
+      if (searchInput) {
+        searchInput.value = presetVal;
+      }
+      updateClearBtnVisibility();
+      syncPresetChips(presetVal);
+      updateFilters({ search: presetVal, page: 1 });
+      refreshData();
+    });
+  });
 
   // Coğrafya / Kapsam Butonları
   document.querySelectorAll("[data-jurisdiction]").forEach((btn) => {
