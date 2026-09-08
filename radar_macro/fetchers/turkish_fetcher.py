@@ -167,44 +167,76 @@ class TurkishOfficialFetcher(BaseFetcher):
         return items
 
     def _fetch_spk(self, source_name: str, limit: int) -> list[RawItem]:
-        """Fetch SPK (Capital Markets Board of Turkey) bulletins and announcements."""
-        url = "https://spk.gov.tr/duyurular"
+        """Fetch real SPK (Capital Markets Board of Turkey) PDF bulletins and extract decision texts."""
+        import io
+        try:
+            from pypdf import PdfReader
+            has_pdf = True
+        except ImportError:
+            has_pdf = False
+
+        bulletin_page_url = "https://spk.gov.tr/spk-bultenleri/2026-yili-spk-bultenleri"
         items: list[RawItem] = []
 
         try:
-            resp = requests.get(url, headers=DEFAULT_HEADERS, verify=False, timeout=12)
+            resp = requests.get(bulletin_page_url, headers=DEFAULT_HEADERS, verify=False, timeout=12)
             resp.encoding = "utf-8"
             if resp.status_code != 200:
+                logger.warning("SPK bültenler sayfası status %d döndü.", resp.status_code)
                 return items
 
             soup = BeautifulSoup(resp.text, "html.parser")
+            bulletin_entries: list[tuple[str, str]] = []
+
             for a in soup.find_all("a", href=True):
                 href = a["href"].strip()
                 text = a.get_text(strip=True)
-
-                if len(text) > 20 and ("bülten" in text.lower() or "duyuru" in text.lower() or "karar" in text.lower() or "tedbir" in text.lower()):
+                if ".pdf" in href.lower() and ("2026-" in href or "bulten" in href.lower() or "bülten" in text.lower()):
                     full_url = href if href.startswith("http") else f"https://spk.gov.tr{href}"
-                    content = (
-                        f"Sermaye Piyasası Kurulu (SPK) Duyurusu\n"
-                        f"Konu / Başlık: {text}\n"
-                        f"Sermaye piyasaları ve halka arz/yaptırım bildirimi: {full_url}"
+                    clean_title = text if len(text) > 10 else f"SPK Bülteni ({full_url.split('/')[-1]})"
+                    bulletin_entries.append((clean_title, full_url))
+
+            for title, pdf_url in bulletin_entries[:limit]:
+                content = (
+                    f"Sermaye Piyasası Kurulu (SPK) Resmî Haftalık Bülteni\n"
+                    f"Bülten Başlığı: {title}\n"
+                    f"Kaynak URL: {pdf_url}\n\n"
+                )
+
+                # PDF İçeriğini Oku ve Ayıkla
+                if has_pdf:
+                    try:
+                        pdf_resp = requests.get(pdf_url, headers=DEFAULT_HEADERS, verify=False, timeout=15)
+                        if pdf_resp.status_code == 200:
+                            reader = PdfReader(io.BytesIO(pdf_resp.content))
+                            extracted_text = ""
+                            for page_idx in range(min(5, len(reader.pages))):
+                                p_text = reader.pages[page_idx].extract_text()
+                                if p_text:
+                                    extracted_text += f"\n--- Sayfa {page_idx + 1} ---\n{p_text}"
+                            if extracted_text.strip():
+                                content += f"Bülten Karar ve Tebliğ Metinleri:\n{extracted_text[:4500]}"
+                    except Exception as pdf_err:
+                        logger.warning("SPK PDF '%s' okunamadı: %s", pdf_url, pdf_err)
+
+                items.append(
+                    RawItem(
+                        source_name=source_name,
+                        url=pdf_url,
+                        title=title,
+                        content_text=content,
+                        raw_metadata={
+                            "jurisdiction": "Turkey",
+                            "category": "Securities Regulator",
+                            "doc_type": "official_pdf_bulletin",
+                        },
                     )
-                    items.append(
-                        RawItem(
-                            source_name=source_name,
-                            url=full_url,
-                            title=text,
-                            content_text=content,
-                            raw_metadata={"jurisdiction": "Turkey", "category": "Securities Regulator"},
-                        )
-                    )
-                    if len(items) >= limit:
-                        break
+                )
 
         except Exception as exc:
-            logger.error("Failed fetching SPK duyurular: %s", exc)
+            logger.error("Failed fetching SPK bulletins: %s", exc)
 
-        logger.info("SPK extracted %d announcements.", len(items))
+        logger.info("SPK extracted %d official PDF bulletins.", len(items))
         return items
 
     def _fetch_bddk(self, source_name: str, limit: int) -> list[RawItem]:
