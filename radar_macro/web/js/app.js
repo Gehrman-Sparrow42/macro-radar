@@ -772,7 +772,254 @@ function initEvents() {
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
   });
+
+  // Dinamik Model & API Ayarları Modalı
+  initSettingsModal();
 }
+
+// ---------------------------------------------------------------------------
+// Dinamik Model & API Anahtarı Yapılandırma Modalı
+// ---------------------------------------------------------------------------
+function initSettingsModal() {
+  const modal = document.getElementById("settings-modal");
+  const openBtn = document.getElementById("btn-open-settings");
+  const closeBtn = document.getElementById("settings-modal-close");
+  const saveBtn = document.getElementById("btn-save-settings");
+  const saveFeedback = document.getElementById("settings-save-feedback");
+
+  const geminiKeyInput = document.getElementById("cfg-gemini-key");
+  const toggleGeminiBtn = document.getElementById("btn-toggle-gemini-key");
+  const testGeminiBtn = document.getElementById("btn-test-gemini");
+  const geminiModelSelect = document.getElementById("cfg-gemini-model-select");
+  const geminiCustomWrap = document.getElementById("gemini-custom-wrap");
+  const geminiCustomInput = document.getElementById("cfg-gemini-model-custom");
+  const geminiBadge = document.getElementById("gemini-status-badge");
+  const geminiFeedback = document.getElementById("gemini-test-result");
+
+  const openaiKeyInput = document.getElementById("cfg-openai-key");
+  const toggleOpenaiBtn = document.getElementById("btn-toggle-openai-key");
+  const testOpenaiBtn = document.getElementById("btn-test-openai");
+  const openaiReasoningSelect = document.getElementById("cfg-openai-reasoning-select");
+  const openaiCustomWrap = document.getElementById("openai-custom-wrap");
+  const openaiCustomInput = document.getElementById("cfg-openai-reasoning-custom");
+  const openaiBadge = document.getElementById("openai-status-badge");
+  const openaiFeedback = document.getElementById("openai-test-result");
+
+  if (!modal || !openBtn) return;
+
+  function openSettings() {
+    modal.classList.add("active");
+    loadSettings();
+  }
+
+  function closeSettings() {
+    modal.classList.remove("active");
+    if (geminiFeedback) geminiFeedback.className = "test-feedback-box hidden";
+    if (openaiFeedback) openaiFeedback.className = "test-feedback-box hidden";
+    if (saveFeedback) saveFeedback.textContent = "";
+  }
+
+  openBtn.addEventListener("click", openSettings);
+  if (closeBtn) closeBtn.addEventListener("click", closeSettings);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeSettings();
+  });
+
+  // Password Visibility Toggles
+  if (toggleGeminiBtn && geminiKeyInput) {
+    toggleGeminiBtn.addEventListener("click", () => {
+      geminiKeyInput.type = geminiKeyInput.type === "password" ? "text" : "password";
+    });
+  }
+  if (toggleOpenaiBtn && openaiKeyInput) {
+    toggleOpenaiBtn.addEventListener("click", () => {
+      openaiKeyInput.type = openaiKeyInput.type === "password" ? "text" : "password";
+    });
+  }
+
+  // Model Select custom toggles
+  if (geminiModelSelect && geminiCustomWrap) {
+    geminiModelSelect.addEventListener("change", () => {
+      if (geminiModelSelect.value === "custom") {
+        geminiCustomWrap.classList.remove("hidden");
+      } else {
+        geminiCustomWrap.classList.add("hidden");
+      }
+    });
+  }
+  if (openaiReasoningSelect && openaiCustomWrap) {
+    openaiReasoningSelect.addEventListener("change", () => {
+      if (openaiReasoningSelect.value === "custom") {
+        openaiCustomWrap.classList.remove("hidden");
+      } else {
+        openaiCustomWrap.classList.add("hidden");
+      }
+    });
+  }
+
+  async function loadSettings() {
+    try {
+      const data = await MacroAPI.getSettings();
+      if (geminiKeyInput) {
+        geminiKeyInput.value = data.gemini_api_key_masked || "";
+        geminiKeyInput.placeholder = data.gemini_api_key_set ? "Mevcut anahtar kayıtlı" : "AIzaSy...";
+      }
+      if (geminiBadge) {
+        if (data.gemini_api_key_set) {
+          geminiBadge.className = "badge-status-pill badge-active";
+          geminiBadge.textContent = "● Aktif & Bağlı";
+        } else {
+          geminiBadge.className = "badge-status-pill badge-missing";
+          geminiBadge.textContent = "○ Anahtar Eksik";
+        }
+      }
+
+      // Gemini Model
+      if (geminiModelSelect) {
+        const hasOpt = Array.from(geminiModelSelect.options).some((o) => o.value === data.gemini_model);
+        if (hasOpt) {
+          geminiModelSelect.value = data.gemini_model;
+          geminiCustomWrap.classList.add("hidden");
+        } else {
+          geminiModelSelect.value = "custom";
+          geminiCustomWrap.classList.remove("hidden");
+          if (geminiCustomInput) geminiCustomInput.value = data.gemini_model || "";
+        }
+      }
+
+      // OpenAI Key & Status
+      if (openaiKeyInput) {
+        openaiKeyInput.value = data.openai_api_key_masked || "";
+        openaiKeyInput.placeholder = data.openai_api_key_set ? "Mevcut anahtar kayıtlı" : "sk-proj-...";
+      }
+      if (openaiBadge) {
+        if (data.openai_api_key_set) {
+          openaiBadge.className = "badge-status-pill badge-active";
+          openaiBadge.textContent = "● Aktif & Bağlı";
+        } else {
+          openaiBadge.className = "badge-status-pill badge-missing";
+          openaiBadge.textContent = "○ Anahtar Eksik";
+        }
+      }
+
+      // OpenAI Reasoning Model
+      if (openaiReasoningSelect) {
+        const hasOpt = Array.from(openaiReasoningSelect.options).some((o) => o.value === data.openai_model_reasoning);
+        if (hasOpt) {
+          openaiReasoningSelect.value = data.openai_model_reasoning;
+          openaiCustomWrap.classList.add("hidden");
+        } else {
+          openaiReasoningSelect.value = "custom";
+          openaiCustomWrap.classList.remove("hidden");
+          if (openaiCustomInput) openaiCustomInput.value = data.openai_model_reasoning || "";
+        }
+      }
+    } catch (err) {
+      showToast(`Ayarlar okunamadı: ${err.message}`, true);
+    }
+  }
+
+  // Test Gemini
+  if (testGeminiBtn) {
+    testGeminiBtn.addEventListener("click", async () => {
+      geminiFeedback.className = "test-feedback-box feedback-loading";
+      geminiFeedback.textContent = "⚡ Gemini bağlantısı test ediliyor...";
+      const model = geminiModelSelect.value === "custom" ? (geminiCustomInput.value.trim() || "gemini-flash-latest") : geminiModelSelect.value;
+      const key = geminiKeyInput.value.trim();
+
+      try {
+        const res = await MacroAPI.testSettings({
+          provider: "gemini",
+          api_key: key,
+          model_name: model,
+        });
+        if (res.success) {
+          geminiFeedback.className = "test-feedback-box feedback-success";
+          geminiFeedback.textContent = `✅ ${res.message} - Model: ${res.model}`;
+        } else {
+          geminiFeedback.className = "test-feedback-box feedback-error";
+          geminiFeedback.textContent = `❌ Test Başarısız: ${res.error}`;
+        }
+      } catch (err) {
+        geminiFeedback.className = "test-feedback-box feedback-error";
+        geminiFeedback.textContent = `❌ Hata: ${err.message}`;
+      }
+    });
+  }
+
+  // Test OpenAI
+  if (testOpenaiBtn) {
+    testOpenaiBtn.addEventListener("click", async () => {
+      const model = openaiReasoningSelect.value === "custom" ? (openaiCustomInput.value.trim() || "o1") : openaiReasoningSelect.value;
+      openaiFeedback.className = "test-feedback-box feedback-loading";
+      openaiFeedback.textContent = `⚡ OpenAI bağlantısı test ediliyor (model: ${model})...`;
+      const key = openaiKeyInput.value.trim();
+
+      try {
+        const res = await MacroAPI.testSettings({
+          provider: "openai",
+          api_key: key,
+          model_name: model,
+        });
+        if (res.success) {
+          openaiFeedback.className = "test-feedback-box feedback-success";
+          openaiFeedback.textContent = `✅ ${res.message} - Model: ${res.model}`;
+        } else {
+          openaiFeedback.className = "test-feedback-box feedback-error";
+          openaiFeedback.textContent = `❌ Test Başarısız: ${res.error}`;
+        }
+      } catch (err) {
+        openaiFeedback.className = "test-feedback-box feedback-error";
+        openaiFeedback.textContent = `❌ Hata: ${err.message}`;
+      }
+    });
+  }
+
+  // Save Settings
+  if (saveBtn) {
+    saveBtn.addEventListener("click", async () => {
+      saveBtn.disabled = true;
+      saveFeedback.textContent = "Kaydediliyor...";
+      saveFeedback.style.color = "#60a5fa";
+
+      const geminiModel = geminiModelSelect.value === "custom" ? geminiCustomInput.value.trim() : geminiModelSelect.value;
+      const openaiModel = openaiReasoningSelect.value === "custom" ? openaiCustomInput.value.trim() : openaiReasoningSelect.value;
+
+      const payload = {
+        gemini_model: geminiModel,
+        openai_model_reasoning: openaiModel,
+      };
+
+      const gKey = geminiKeyInput.value.trim();
+      if (gKey && !gKey.includes("...") && !gKey.includes("****")) {
+        payload.gemini_api_key = gKey;
+      }
+
+      const oKey = openaiKeyInput.value.trim();
+      if (oKey && !oKey.includes("...") && !oKey.includes("****")) {
+        payload.openai_api_key = oKey;
+      }
+
+      try {
+        const res = await MacroAPI.updateSettings(payload);
+        saveFeedback.style.color = "#34d399";
+        saveFeedback.textContent = "✅ " + res.message;
+        showToast("✅ Model ve API ayarları çalışma zamanına uygulandı!");
+        setTimeout(() => {
+          closeSettings();
+          loadPortfolioData();
+        }, 1200);
+      } catch (err) {
+        saveFeedback.style.color = "#f87171";
+        saveFeedback.textContent = "❌ Hata: " + err.message;
+        showToast(`Kaydedilemedi: ${err.message}`, true);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // Başlatma (Init)

@@ -48,8 +48,15 @@
           </div>
         </div>
 
-        <!-- Veri Yenileme Butonu -->
+        <!-- Veri Yenileme ve Model Ayar Butonları -->
         <div class="header-actions">
+          <button id="btn-open-settings" class="btn-settings" title="Model & API Anahtarı Ayarlarını Yapılandır">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            ⚙️ Model & API Ayarları
+          </button>
           <button id="btn-sync-trigger" class="btn-sync" title="Yeni Resmî Gazete, TCMB ve BDDK Verilerini Çek">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
@@ -444,6 +451,109 @@
             <a id="modal-link" href="#" target="_blank" class="modal-source-link">🔗 Resmî Kaynak Belgesini Tarayıcıda Aç</a>
             <span id="modal-hash" class="modal-hash-text"></span>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Model & API Anahtarı Yapılandırma Modalı -->
+  <div id="settings-modal" class="modal-overlay hidden" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
+    <div class="modal-container modal-settings-container">
+      <div class="modal-header">
+        <div class="settings-modal-title-wrap">
+          <span class="settings-modal-icon">⚙️</span>
+          <div>
+            <h2 id="settings-modal-title" class="modal-title-text">Yapay Zeka & Model Yapılandırması</h2>
+            <p class="settings-modal-sub">API anahtarlarınızı güncelleyin, istediğiniz modeli seçin veya özel model kimliği girin.</p>
+          </div>
+        </div>
+        <button id="settings-modal-close" class="modal-close-btn" title="Kapat">&times;</button>
+      </div>
+
+      <div class="modal-body settings-modal-body">
+        <!-- 1. Google Gemini Bölümü (Haber & Ön Analiz) -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-brand">
+              <span class="provider-pill pill-gemini">Google GenAI</span>
+              <span class="settings-card-role">Haber Sınıflandırma & Ön Analiz Katmanı</span>
+            </div>
+            <span id="gemini-status-badge" class="badge-status-pill badge-neutral">Kontrol ediliyor...</span>
+          </div>
+
+          <div class="settings-field-group">
+            <label for="cfg-gemini-key" class="settings-label">Gemini API Anahtarı:</label>
+            <div class="settings-input-row">
+              <input type="password" id="cfg-gemini-key" class="settings-input" placeholder="AIzaSy... veya mevcut anahtar" title="Gemini API Anahtarı" aria-label="Gemini API Anahtarı" />
+              <button type="button" id="btn-toggle-gemini-key" class="btn-input-eye" title="Göster / Gizle">👁️</button>
+              <button type="button" id="btn-test-gemini" class="btn-test-api" title="Gemini Bağlantısını Canlı Test Et">⚡ Test Et</button>
+            </div>
+          </div>
+
+          <div class="settings-field-group">
+            <label for="cfg-gemini-model-select" class="settings-label">Haber Tarama Modeli:</label>
+            <div class="settings-model-picker">
+              <select id="cfg-gemini-model-select" class="settings-select" title="Hazır Gemini Modelleri" aria-label="Hazır Gemini Modelleri">
+                <option value="gemini-flash-latest">gemini-flash-latest (Önerilen Hızlı & Ücretsiz Kotası Yüksek)</option>
+                <option value="gemini-2.0-flash">gemini-2.0-flash (En Güncel Flash Modeli)</option>
+                <option value="gemini-2.0-pro-exp">gemini-2.0-pro-exp (Gelişmiş Düşünce)</option>
+                <option value="custom">Özel Model Adı Gir...</option>
+              </select>
+              <div class="custom-model-wrap hidden" id="gemini-custom-wrap">
+                <label for="cfg-gemini-model-custom" class="sr-only">Özel Gemini Modeli</label>
+                <input type="text" id="cfg-gemini-model-custom" class="settings-input" placeholder="Örn: gemini-2.5-flash" title="Özel Gemini Model Adı" aria-label="Özel Gemini Model Adı" />
+              </div>
+            </div>
+          </div>
+          <div id="gemini-test-result" class="test-feedback-box hidden"></div>
+        </div>
+
+        <!-- 2. OpenAI Bölümü (Portföy Copilotu & Amiral Karar Motoru) -->
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <div class="settings-card-brand">
+              <span class="provider-pill pill-openai">OpenAI</span>
+              <span class="settings-card-role">Portföy Karar & Taktiksel Çıkış/Geçiş Beyni</span>
+            </div>
+            <span id="openai-status-badge" class="badge-status-pill badge-neutral">Kontrol ediliyor...</span>
+          </div>
+
+          <div class="settings-field-group">
+            <label for="cfg-openai-key" class="settings-label">OpenAI API Anahtarı:</label>
+            <div class="settings-input-row">
+              <input type="password" id="cfg-openai-key" class="settings-input" placeholder="sk-proj-... veya mevcut anahtar" title="OpenAI API Anahtarı" aria-label="OpenAI API Anahtarı" />
+              <button type="button" id="btn-toggle-openai-key" class="btn-input-eye" title="Göster / Gizle">👁️</button>
+              <button type="button" id="btn-test-openai" class="btn-test-api" title="OpenAI Bağlantısını Canlı Test Et">⚡ Test Et</button>
+            </div>
+          </div>
+
+          <div class="settings-field-group">
+            <label for="cfg-openai-reasoning-select" class="settings-label">Portföy Karar & Muhakeme Modeli (Reasoning Brain):</label>
+            <div class="settings-model-picker">
+              <select id="cfg-openai-reasoning-select" class="settings-select" title="Hazır OpenAI Muhakeme Modelleri" aria-label="Hazır OpenAI Muhakeme Modelleri">
+                <option value="o3">o3 (En Üst Düzey Tam Sıklet Muhakeme Amiral Gemisi)</option>
+                <option value="o1">o1 (Amiral Gemisi Derin Muhakeme & WACC - 100K+ İçin Önerilen)</option>
+                <option value="o3-mini">o3-mini (Yüksek Hızlı STEM/Matematik CoT)</option>
+                <option value="gpt-4o">gpt-4o (Ağır Siklet Genel Analitik)</option>
+                <option value="gpt-5">gpt-5 (OpenAI Yeni Nesil)</option>
+                <option value="custom">Özel Model Adı Gir...</option>
+              </select>
+              <div class="custom-model-wrap hidden" id="openai-custom-wrap">
+                <label for="cfg-openai-reasoning-custom" class="sr-only">Özel OpenAI Modeli</label>
+                <input type="text" id="cfg-openai-reasoning-custom" class="settings-input" placeholder="Örn: o1-pro, o3, gpt-5" title="Özel OpenAI Model Adı" aria-label="Özel OpenAI Model Adı" />
+              </div>
+            </div>
+            <p class="settings-help-text">💡 OpenAI gelecekte yeni model çıkardığında (ör. o3, gpt-5), kodu değiştirmeden direkt adını yazarak kullanabilirsiniz.</p>
+          </div>
+          <div id="openai-test-result" class="test-feedback-box hidden"></div>
+        </div>
+
+        <!-- Kaydet Butonu -->
+        <div class="settings-footer-actions">
+          <button type="button" id="btn-save-settings" class="btn-save-settings">
+            💾 Ayarları Kaydet ve Uygula
+          </button>
+          <span id="settings-save-feedback" class="settings-save-status"></span>
         </div>
       </div>
     </div>

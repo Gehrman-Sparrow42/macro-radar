@@ -82,6 +82,81 @@ class PortfolioUpdateRequest(BaseModel):
     user_key: str = "default_user"
 
 
+class SettingsUpdateRequest(BaseModel):
+    gemini_api_key: str | None = None
+    gemini_model: str | None = None
+    openai_api_key: str | None = None
+    openai_model_reasoning: str | None = None
+    openai_model_heavy: str | None = None
+    openai_model_fast: str | None = None
+
+
+class SettingsTestRequest(BaseModel):
+    provider: str
+    api_key: str | None = None
+    model_name: str
+
+
+def _mask_key(key: str | None) -> str:
+    if not key:
+        return ""
+    if len(key) <= 10:
+        return "****"
+    return f"{key[:7]}...{key[-4:]}"
+
+
+def _save_env_updates(updates: dict[str, str]) -> None:
+    """Updates .env on disk and refreshes running process environment."""
+    import os
+    env_paths = [PROJECT_ROOT / ".env", APP_ROOT / ".env"]
+    primary_env = PROJECT_ROOT / ".env"
+
+    current_lines = []
+    if primary_env.exists():
+        current_lines = primary_env.read_text(encoding="utf-8").splitlines()
+
+    new_keys = set(updates.keys())
+    updated_lines = []
+    seen_keys = set()
+
+    for line in current_lines:
+        trimmed = line.strip()
+        if trimmed and not trimmed.startswith("#") and "=" in trimmed:
+            k = trimmed.split("=", 1)[0].strip()
+            if k in updates:
+                updated_lines.append(f"{k}={updates[k]}")
+                seen_keys.add(k)
+                continue
+        updated_lines.append(line)
+
+    for k, v in updates.items():
+        if k not in seen_keys:
+            updated_lines.append(f"{k}={v}")
+
+    content = "\n".join(updated_lines) + "\n"
+    for p in env_paths:
+        try:
+            p.write_text(content, encoding="utf-8")
+        except Exception as err:
+            logger.debug("Writing .env to %s failed: %s", p, err)
+
+    for k, v in updates.items():
+        os.environ[k] = v
+
+    # Clear cached settings singletons
+    try:
+        from radar_macro.config.settings import get_macro_settings
+        get_macro_settings.cache_clear()
+    except Exception:
+        pass
+    try:
+        from radar_core.config.settings import get_settings
+        get_settings.cache_clear()
+    except Exception:
+        pass
+
+
+
 # ---------------------------------------------------------------------------
 # REST API Endpoints
 # ---------------------------------------------------------------------------
@@ -286,6 +361,96 @@ def trigger_memory_compaction(background_tasks: BackgroundTasks) -> dict[str, st
     from radar_macro.backfill import run_historical_backfill
     background_tasks.add_task(run_historical_backfill)
     return {"status": "started", "message": "Aylık makro bellek derleme döngüsü başlatıldı."}
+
+
+# ---------------------------------------------------------------------------
+# In-App Dynamic LLM & API Key Configuration Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/api/settings")
+def get_runtime_settings() -> dict[str, Any]:
+    """Uygulama içerisinden dinamik olarak modelleri ve API anahtar durumlarını okur."""
+    s = get_macro_settings()
+    return {
+        "gemini_api_key_masked": _mask_key(s.GEMINI_API_KEY),
+        "gemini_api_key_set": bool(s.GEMINI_API_KEY and len(s.GEMINI_API_KEY) > 5),
+        "gemini_model": s.GEMINI_MODEL,
+        "openai_api_key_masked": _mask_key(s.OPENAI_API_KEY),
+        "openai_api_key_set": bool(s.OPENAI_API_KEY and len(s.OPENAI_API_KEY) > 5),
+        "openai_model_reasoning": s.OPENAI_MODEL_REASONING,
+        "openai_model_heavy": s.OPENAI_MODEL_HEAVY,
+        "openai_model_fast": s.OPENAI_MODEL_FAST,
+        "recommendations": {
+            "gemini_news": [
+                {"id": "gemini-flash-latest", "label": "Gemini Flash (Varsayılan - Hızlı & Ücretsiz Kotası Yüksek)", "badge": "Tavsiye"},
+                {"id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash (En Güncel Flash Modeli)", "badge": "Yeni"},
+                {"id": "gemini-2.0-pro-exp", "label": "Gemini 2.0 Pro Exp (Yüksek Muhakeme)", "badge": "Deneysel"},
+            ],
+            "openai_reasoning": [
+                {"id": "o3", "label": "OpenAI o3 (En Üst Düzey Tam Sıklet Muhakeme Amiral Gemisi)", "badge": "Yeni Nesil Amiral"},
+                {"id": "o1", "label": "OpenAI o1 (Derin Muhakeme & WACC - 100K+ İçin Önerilen)", "badge": "Güvenilir Amiral"},
+                {"id": "o3-mini", "label": "OpenAI o3-mini (Yüksek Hızlı STEM/Matematik CoT)", "badge": "Hızlı Düşünce"},
+                {"id": "gpt-4o", "label": "OpenAI GPT-4o (Amiral Gemisi Genel Analitik)", "badge": "Klasik Amiral"},
+                {"id": "gpt-5", "label": "OpenAI GPT-5 (Doğrulanmış Hesaplar)", "badge": "Gelecek Nesil"},
+            ],
+            "openai_fast": [
+                {"id": "gpt-4o-mini", "label": "GPT-4o-mini (Düşük Maliyetli Failover)", "badge": "Yedek"},
+                {"id": "gpt-4o", "label": "GPT-4o (Güçlü Yedek)", "badge": "Ağır"},
+            ],
+        },
+    }
+
+
+@app.post("/api/settings")
+def update_runtime_settings(payload: SettingsUpdateRequest) -> dict[str, Any]:
+    """API anahtarlarını ve model tercihlerini canlı günceller ve .env dosyasına yazar."""
+    updates: dict[str, str] = {}
+    current_settings = get_macro_settings()
+
+    if payload.gemini_api_key and "..." not in payload.gemini_api_key and "****" not in payload.gemini_api_key:
+        updates["GEMINI_API_KEY"] = payload.gemini_api_key.strip()
+    if payload.gemini_model:
+        updates["GEMINI_MODEL"] = payload.gemini_model.strip()
+
+    if payload.openai_api_key and "..." not in payload.openai_api_key and "****" not in payload.openai_api_key:
+        updates["OPENAI_API_KEY"] = payload.openai_api_key.strip()
+    if payload.openai_model_reasoning:
+        updates["OPENAI_MODEL_REASONING"] = payload.openai_model_reasoning.strip()
+    if payload.openai_model_heavy:
+        updates["OPENAI_MODEL_HEAVY"] = payload.openai_model_heavy.strip()
+    if payload.openai_model_fast:
+        updates["OPENAI_MODEL_FAST"] = payload.openai_model_fast.strip()
+
+    if updates:
+        _save_env_updates(updates)
+        logger.info("Runtime settings dynamically updated: %s", list(updates.keys()))
+
+    return {
+        "status": "success",
+        "message": "Ayarlar başarıyla kaydedildi ve çalışma zamanına anında uygulandı.",
+        "updated_keys": list(updates.keys()),
+        "current": get_runtime_settings(),
+    }
+
+
+@app.post("/api/settings/test")
+def test_runtime_credentials(payload: SettingsTestRequest) -> dict[str, Any]:
+    """Belirtilen API anahtarı ve modelin canlı bağlantısını test eder."""
+    current_settings = get_macro_settings()
+    key = payload.api_key
+    if not key or "..." in key or "****" in key:
+        if payload.provider.lower() == "gemini":
+            key = current_settings.GEMINI_API_KEY
+        else:
+            key = current_settings.OPENAI_API_KEY
+
+    from radar_core.core.llm_engine import LLMEngine
+    return LLMEngine.test_connection(
+        provider=payload.provider,
+        api_key=key or "",
+        model_name=payload.model_name,
+    )
+
 
 
 def _run_ingest_worker(category: str | None, jurisdiction: str | None, batch_size: int) -> None:

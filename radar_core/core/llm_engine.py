@@ -45,7 +45,7 @@ class LLMEngine:
         self.gemini_model = gemini_model or getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
         self.openai_model_fast = openai_model_fast or getattr(settings, "OPENAI_MODEL_FAST", "gpt-4o-mini")
         self.openai_model_heavy = openai_model_heavy or getattr(settings, "OPENAI_MODEL_HEAVY", "gpt-4o")
-        self.openai_model_reasoning = openai_model_reasoning or getattr(settings, "OPENAI_MODEL_REASONING", "o3-mini")
+        self.openai_model_reasoning = openai_model_reasoning or getattr(settings, "OPENAI_MODEL_REASONING", "o1")
 
         self.max_retries = max_retries or getattr(settings, "MAX_RETRIES", 3)
         self.backoff_factor = backoff_factor or getattr(settings, "BACKOFF_FACTOR", 1.5)
@@ -245,7 +245,10 @@ class LLMEngine:
         if system_instruction:
             sys_msg += f"\n\nEk Yönergeler:\n{system_instruction}"
 
-        is_reasoning_model = model_name.startswith("o1") or model_name.startswith("o3")
+        is_reasoning_model = (
+            any(model_name.lower().startswith(p) for p in ["o1", "o3", "o4", "o-"])
+            or "reasoning" in model_name.lower()
+        )
         role_name = "developer" if is_reasoning_model else "system"
 
         call_kwargs = {
@@ -271,3 +274,77 @@ class LLMEngine:
             clean_text = re.sub(r"\s*```$", "", clean_text)
 
         return response_schema.model_validate_json(clean_text)
+
+    # -----------------------------------------------------------------------
+    # In-App Credentials & Model Connection Verifier
+    # -----------------------------------------------------------------------
+    @staticmethod
+    def test_connection(provider: str, api_key: str, model_name: str) -> dict[str, Any]:
+        """Canlı olarak API anahtarı ve model geçerliliğini test eder."""
+        import time
+        t0 = time.perf_counter()
+        prov = provider.lower().strip()
+
+        if not api_key:
+            return {"success": False, "error": "API anahtarı boş olamaz."}
+
+        try:
+            if prov == "gemini":
+                from google import genai
+                from google.genai import types
+                client = genai.Client(
+                    api_key=api_key,
+                    http_options=types.HttpOptions(timeout=10000),
+                )
+                res = client.models.generate_content(
+                    model=model_name or "gemini-flash-latest",
+                    contents="Kısa test: 1 kelimeyle 'aktif' yaz.",
+                )
+                latency = round((time.perf_counter() - t0) * 1000)
+                reply = (res.text or "").strip()[:50]
+                return {
+                    "success": True,
+                    "provider": "Gemini",
+                    "model": model_name,
+                    "latency_ms": latency,
+                    "reply": reply,
+                    "message": f"Gemini bağlantısı başarılı ({latency}ms)",
+                }
+
+            elif prov == "openai":
+                from openai import OpenAI
+                client = OpenAI(api_key=api_key, timeout=12.0)
+                is_reasoning = any(model_name.lower().startswith(p) for p in ["o1", "o3", "o4", "o-"]) or "reasoning" in model_name.lower()
+                kwargs = {
+                    "model": model_name or "gpt-4o",
+                    "messages": [{"role": "user", "content": "Kısa test: 1 kelimeyle 'aktif' yaz."}],
+                }
+                if is_reasoning:
+                    kwargs["max_completion_tokens"] = 50
+                else:
+                    kwargs["max_tokens"] = 50
+                    kwargs["temperature"] = 0.1
+
+                res = client.chat.completions.create(**kwargs)
+                latency = round((time.perf_counter() - t0) * 1000)
+                reply = (res.choices[0].message.content or "").strip()[:50]
+                return {
+                    "success": True,
+                    "provider": "OpenAI",
+                    "model": model_name,
+                    "latency_ms": latency,
+                    "reply": reply,
+                    "message": f"OpenAI bağlantısı başarılı ({latency}ms)",
+                }
+            else:
+                return {"success": False, "error": f"Bilinmeyen sağlayıcı: {provider}"}
+        except Exception as exc:
+            latency = round((time.perf_counter() - t0) * 1000)
+            return {
+                "success": False,
+                "provider": provider,
+                "model": model_name,
+                "latency_ms": latency,
+                "error": str(exc),
+            }
+

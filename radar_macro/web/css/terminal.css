@@ -1477,3 +1477,301 @@
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ==========================================================================
+   DİNAMİK MODEL & API AYARLARI MODAL STİLLERİ
+   ========================================================================== */
+
+.btn-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-settings:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #3b82f6;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.modal-settings-container {
+  max-width: 720px;
+  width: 95%;
+  background: #0b1120;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85);
+  border-radius: 12px;
+}
+
+.settings-modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-modal-icon {
+  font-size: 1.8rem;
+}
+
+.settings-modal-sub {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.settings-modal-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.settings-card {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 0.2s;
+}
+
+.settings-card:hover {
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.settings-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 10px;
+}
+
+.settings-card-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.provider-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+
+.pill-gemini {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.pill-openai {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.settings-card-role {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.badge-status-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.badge-status-pill.badge-active {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-status-pill.badge-missing {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-status-pill.badge-neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.settings-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-label {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-input {
+  flex: 1;
+  background: #050811;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #f1f5f9;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.btn-input-eye {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+
+.btn-input-eye:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.btn-test-api {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-test-api:hover {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: #f59e0b;
+  color: #fff;
+}
+
+.settings-model-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-select {
+  background: #050811;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #f1f5f9;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.settings-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.custom-model-wrap {
+  margin-top: 4px;
+}
+
+.settings-help-text {
+  font-size: 0.76rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.test-feedback-box {
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  margin-top: 4px;
+}
+
+.test-feedback-box.feedback-success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.test-feedback-box.feedback-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+}
+
+.test-feedback-box.feedback-loading {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+}
+
+.settings-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-save-settings {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 1px solid #3b82f6;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+}
+
+.btn-save-settings:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+}
+
+.settings-save-status {
+  font-size: 0.84rem;
+  color: #34d399;
+  font-weight: 600;
+}

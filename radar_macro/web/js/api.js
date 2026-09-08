@@ -68,11 +68,30 @@ export const MacroAPI = {
     return await res.json();
   },
 
-  async triggerCompaction() {
-    const res = await fetch(`${API_BASE}/api/memory/compact`, {
+  async getSettings() {
+    const res = await fetch(`${API_BASE}/api/settings`);
+    if (!res.ok) throw new Error(`Settings HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async updateSettings(payload) {
+    const res = await fetch(`${API_BASE}/api/settings`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`Compaction HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Update settings HTTP ${res.status}`);
+    return await res.json();
+  },
+
+  async testSettings(payload) {
+    const res = await fetch(`${API_BASE}/api/settings/test`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Test credentials HTTP ${res.status}`);
     return await res.json();
   },
 };
+
