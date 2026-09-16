@@ -1,161 +1,136 @@
-# 🦅 YATIRIM RADARI (Investment & Macro Intelligence Terminal)
+# yatirim-radari
 
-> **Türkiye ve Küresel Piyasalar için Makro İstihbarat, Hibrit LLM Analiz ve Taktiksel Portföy Yönetim Terminali**
+Macroeconomic regulatory scraper, automated digest engine, and portfolio allocation decision-support terminal for Turkish and global financial markets.
 
-Yatırım Radarı; Türkiye Cumhuriyet Merkez Bankası (**TCMB**), Bankacılık Düzenleme ve Denetleme Kurumu (**BDDK**), **T.C. Resmî Gazete** ve **BloombergHT** gibi birincil regülasyon ve haber kaynaklarını anlık tarayan, bunları küresel makroekonomik eksenle (**Fed**, **ECB**, **IMF**) birleştiren ve yatırımcının portföyüne özel taktiksel geçiş kararları üreten kurumsal düzeyde bir makro terminaldir.
+## Overview
 
----
+Yatırım Radarı is an automated intelligence pipeline and local analytical terminal. It ingests primary regulatory and monetary policy bulletins (TCMB, BDDK, Turkish Official Gazette, BloombergHT, and global central bank feeds), filters legislative and interest rate actions into structured SQLite storage, generates a monthly rolling macroeconomic memory digest, and provides asset-allocation tactical guidance through a local FastAPI web interface.
 
-## ⚡ Temel Yetenekler ve Mimari
+## Architecture and Pipeline
+
+The application operates as a sequential data ingestion and decision engine with hierarchical model fallback.
 
 ```mermaid
-flowchart TD
-    subgraph Ingestion["1. İstihbarat & Veri Toplama"]
-        TCMB["TCMB (PPK, Faiz, Tebliğler)"]
-        BDDK["BDDK (Kredi Sınırları, Kararlar)"]
-        RG["Resmî Gazete (Mevzuat, Vergi)"]
-        BHT["BloombergHT (Piyasa Akışı)"]
-        GLOBAL["Küresel Merkez Bankaları (Fed/ECB)"]
-    end
-
-    subgraph Memory["2. Makro Bellek Sistemi (Memory Engine)"]
-        D1["Haziran 2026 Özeti"]
-        D2["Temmuz 2026 Özeti"]
-        D3["Ağustos 2026 Özeti"]
-        ROLL["90 Günlük Rolling Makro Hafıza"]
-    end
-
-    subgraph Brain["3. Hibrit LLM Karar Katmanı"]
-        G_FLASH["Gemini Flash (Hızlı Haber Sınıflandırma)"]
-        O1_BRAIN["OpenAI o1 (Amiral Gemisi Derin Muhakeme & WACC)"]
-        GPT4O_BACKUP["OpenAI GPT-4o (Yedek Analitik Model)"]
-    end
-
-    subgraph Terminal["4. Terminal UI & Portföy Motoru"]
-        PORTFOLIO["Kullanıcı Varlık Dağılımı (BIST / Mevduat / Döviz / Tahvil / Altın)"]
-        COPILOT["Taktiksel 'Şundan Çık ➔ Şuna Geç' Yönlendirmesi"]
-        BIST_STOCKS["BIST Şirket Bazlı Seçici Rehberlik"]
-        DASHBOARD["FastAPI + Glassmorphic Web Terminal (Port 8501)"]
-    end
-
-    Ingestion --> Brain
-    Ingestion --> Memory
-    Memory --> O1_BRAIN
-    Brain --> Terminal
-    PORTFOLIO --> O1_BRAIN --> COPILOT
+flowchart LR
+    A[Regulatory and News Sources] --> B[Data Fetchers and Parsers]
+    B --> C[SQLite Local Storage]
+    C --> D[Monthly Memory Rollup Engine]
+    D --> E[Hybrid LLM Reasoning Layer]
+    F[User Asset Allocation Input] --> E
+    E --> G[FastAPI Terminal Interface]
+    G --> H[Tactical Rebalance Directives]
 ```
 
----
+- Data Ingestion: Asynchronous and scheduled fetchers poll primary sources (Central Bank of Turkey, Banking Regulation and Supervision Agency, Official Gazette, BloombergHT RSS/HTML) at configurable intervals.
+- Normalization and Filtering: HTML and RSS payloads are parsed using BeautifulSoup and Feedparser. Articles and decrees are validated against content-length and keyword thresholds, then persisted into `macro_radar.db`.
+- Macro Memory Engine: Aggregates historical items into calendar-month summaries (30-day and 90-day rolling digests) to preserve longitudinal policy context without context-window overflow.
+- Reasoning Layer: Uses dual-provider LLM routing. High-frequency classification and parsing use Gemini Flash with automatic failover to GPT-4o-mini. Complex multi-asset allocation decisions route through reasoning models (OpenAI o1 / GPT-4o).
+- Delivery: A local FastAPI dashboard serves the terminal UI, showing regulatory alerts, sentiment scores, macro indicators, and portfolio reallocation guidance.
 
-### 1. Yerli & Küresel Makro Radar Katmanı
-* **TCMB:** Para Politikası Kurulu (PPK) faiz kararları, zorunlu karşılıklar (ZK) ve basın duyuruları doğrudan taranır.
-* **BDDK:** Kredi kartı/bireysel kredi sınırları, bankacılık sermaye yeterlilik oranları ve likidite kararları izlenir.
-* **T.C. Resmî Gazete:** Vergi kanunları, stopaj düzenlemeleri ve Cumhurbaşkanlığı kararları filtrelenir.
-* **BloombergHT:** Finans piyasası haberleri, kur ve borsa gelişmeleri taranır.
+## Tech Stack
 
----
+| Component | Technology | Description |
+| :--- | :--- | :--- |
+| Runtime | Python 3.10+ | Core language environment |
+| Backend Server | FastAPI, Uvicorn | Local analytical web server and REST API |
+| Database | SQLite, SQLAlchemy 2.0+ | Relational persistence for news, digests, and portfolio state |
+| Ingestion / Parsing | HTTPX, BeautifulSoup4, Feedparser | Network client and DOM parsing utilities |
+| Intelligence Routing | Google GenAI SDK, OpenAI Python SDK | Dual-provider LLM routing and reasoning engine |
+| Frontend | HTML5, CSS3, Vanilla JavaScript | Responsive terminal dashboard |
 
-### 2. Hibrit Yapay Zeka Mimarisi (Cost-Effective & Uncompromised Flagship)
-* **Günlük Haber Taraması:** Ücretsiz ve yüksek kotalı `gemini-flash-latest` ile çalışır. Kota/hız sınırına takıldığında otomatik `gpt-4o-mini` failover devreye girer.
-* **Portföy Karar & Taktik Motoru:** 100.000 TL+ gibi gerçek sermaye kararları için OpenAI'ın en üst düzey amiral gemisi **`o1`** modeli kullanılır. Model; WACC, risksiz getiri oranı, borsa F/K çarpanları ve para politikasının reel sektöre aktarım mekanizmasını derin matematiksel ve iktisadi muhakemeyle sentezler.
-* **Akıllı Hiyerarşi:** `o1` ➔ `gpt-4o` ➔ `gpt-4o-mini` ➔ `gemini-flash`.
+## Project Structure
 
----
+```text
+YATIRIM_RADARI/
+├── .env.example              # Environment variables template
+├── .gitignore                # Git ignore rules
+├── README.md                 # Technical documentation
+├── requirements.txt          # Python dependency manifest
+├── Run_Terminal.bat          # Windows batch startup launcher
+├── run.py                    # Application bootstrap and entrypoint
+├── radar_core/               # Shared abstractions and data contracts
+│   ├── core/                 # LLM engine, schemas, and persistence
+│   └── pipelines/            # Base pipeline definitions
+├── radar_macro/              # Macro intelligence module
+│   ├── config/               # Source endpoints and scraping rules
+│   ├── fetchers/             # Domain-specific web scrapers
+│   ├── portfolio.py          # Allocation and asset scoring logic
+│   ├── server.py             # FastAPI routing and endpoints
+│   └── web/                  # HTML templates, stylesheets, and client JS
+└── scripts/                  # Seed, migration, and verification utilities
+```
 
-### 3. 3 Aylık Hiyerarşik Makro Bellek Sistemi (Memory Digest)
-* Her analizde tüm geçmiş haber metinlerini baştan göndermek yüksek token maliyetine ve bağlam kirliliğine yol açar.
-* Sistem her takvim ayı kapandığında 30 günlük dönemi damıtarak tek bir **Makro Konsolide Bellek Kartı** (`macro_memory_digest`) oluşturur.
-* Portföy motoru bu 3 aylık birikimli hafızayı (`2026-06`, `2026-07`, `2026-08` ve `rolling_90d`) okuyarak faiz artışlarının veya indirimlerinin gecikmeli kümülatif etkilerini hesaplar.
+## Setup and Prerequisites
 
----
+### Prerequisites
+- Python 3.10 or higher
+- Valid API keys for Google Gemini and/or OpenAI
 
-### 4. Taktiksel Portföy Yönlendirmesi ("Şundan Çık ➔ Şuna Geç")
-* Kullanıcı mevcut varlık dağılımını girer (BIST Hisseleri, TL Mevduat/PPF, Döviz Nakit/KKM, DİBS & Tahvil, Gram Altın).
-* Yapay zeka terminali aktif makro rejimi teşhis eder:
-  * **Sıkı Para Politikası:** Yüksek TL mevduatı ve defansif nakit zengini BIST şirketleri önerilir.
-  * **Faiz İndirim Döngüsü:** Hisselere ve büyüme şirketlerine geçiş teşvik edilir.
-  * **Volatilite & Kriz:** Gram Altın ve döviz likiditesi artırılır.
-* **Şirket Bazlı Rehberlik:** Rejime göre BIST'te öne çıkan (ör. ENKAI, BIMAS, FROTO) ve baskı altında kalan şirket grupları gerekçeleriyle listelenir.
+### Installation
 
----
+1. Navigate to the project directory:
+   ```bash
+   cd c:/Tools/YATIRIM_RADARI
+   ```
 
-## 🚀 Hızlı Başlangıç
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
 
-### 1. Depoyu Klonlayın
+3. Install required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. Initialize environment configuration:
+   ```bash
+   copy .env.example .env
+   ```
+
+5. Set your provider credentials in `.env`:
+   ```ini
+   GEMINI_API_KEY="your_gemini_api_key"
+   OPENAI_API_KEY="your_openai_api_key"
+   DATABASE_URL="sqlite:///./macro_radar.db"
+   ```
+
+## Usage Examples
+
+### Starting the Intelligence Terminal
+Run the main startup script:
 ```bash
-git clone https://github.com/Gehrman-Sparrow42/YATIRIM_RADARI.git
-cd YATIRIM_RADARI
+python run.py
 ```
-
-### 2. Bağımlılıkları Yükleyin
+Or execute the Windows launcher:
 ```bash
-pip install -r requirements.txt
-```
-
-### 3. Ortam Değişkenlerini Tanımlayın
-`.env.example` dosyasını `.env` olarak kopyalayın ve API anahtarlarınızı girin:
-```ini
-# Gemini API Key (Varsayılan haber sınıflandırma)
-GEMINI_API_KEY=AIzaSy...
-
-# OpenAI API Key (o1 portföy karar motoru)
-OPENAI_API_KEY=sk-proj-...
-
-# Model Tercihleri
-OPENAI_MODEL_REASONING=o1
-OPENAI_MODEL_HEAVY=gpt-4o
-GEMINI_MODEL=gemini-flash-latest
-```
-
-### 4. Terminali Başlatın
-```bash
-# Web Arayüzünü Başlat (Varsayılan Port: 8501)
-python run.py --dashboard
-
-# Veya Windows'ta tek tıkla başlat:
 Run_Terminal.bat
 ```
-Tarayıcınızdan `http://127.0.0.1:8501` adresine giderek terminali kullanmaya başlayabilirsiniz.
 
----
-
-## 🛠️ CLI Komutları
-
-| Komut | Açıklama |
-|---|---|
-| `python run.py --dashboard` | Web terminal arayüzünü ayağa kaldırır. |
-| `python run.py --run-once` | Tek seferlik tüm kaynakları tarar, LLM analizi yapar ve veritabanını günceller. |
-| `python run.py --daemon` | Saatlik periyotlarla sürekli arka plan tarama modunda çalışır. |
-| `python run.py --backfill` | Geçmiş 3 aylık makro haberleri sentetik olarak derler ve hafıza tablosunu oluşturur. |
-
----
-
-## 📂 Dizin Yapısı
-
-```
-YATIRIM_RADARI/
-├── radar_core/             # Çekirdek Kütüphane (ORM Modelleri, Veritabanı, Hibrit LLM Motoru)
-│   ├── config/             # Ayar sınıfları (Pydantic Settings)
-│   ├── core/               # database.py, llm_engine.py, models.py
-│   └── pipelines/          # Temel pipeline protokolleri
-├── radar_macro/            # Makro Terminal Servisleri
-│   ├── config/             # Makroya özel ayarlar
-│   ├── fetchers/           # TCMB, BDDK, Resmî Gazete, BloombergHT web crawlerları
-│   ├── memory_engine.py    # 3 Aylık özet ve 90 günlük rolling bellek yöneticisi
-│   ├── pipeline.py         # Makro istihbarat işleme hattı
-│   ├── portfolio.py        # OpenAI o1 destekli taktiksel portföy copilotu
-│   ├── server.py           # FastAPI REST API & Statik dosya sunucusu
-│   ├── web/                # Glassmorphic Terminal Web UI (HTML, CSS, JS)
-│   └── run.py              # CLI yöneticisi
-├── run.py                  # Kök çalıştırma betiği
-├── Run_Terminal.bat        # Windows başlatıcı
-├── requirements.txt        # Python bağımlılıkları
-├── .env.example            # Örnek ortam değişkenleri şablonu
-└── .gitignore              # Gizlilik ve önbellek kuralları
+The terminal interface will be accessible at:
+```text
+http://127.0.0.1:8501
 ```
 
----
+### Running Headless Intelligence Scrape
+To trigger a manual ingestion cycle without launching the full web dashboard:
+```bash
+python -c "from radar_macro.server import run_scraping_cycle; run_scraping_cycle()"
+```
 
-## 🔒 Güvenlik ve Gizlilik
-* Hassas API anahtarları (`OPENAI_API_KEY`, `GEMINI_API_KEY`) ve yerel SQLite veritabanı dosyaları (`*.db`) `.gitignore` ile korunmaktadır ve depoya dahil edilmez.
-* Canlı portföy oranlarınız yerel SQLite veritabanınızda saklanır; dış sunuculara sadece anonim makro göstergeler gönderilir.
+### Configuration Environment Variables
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `GEMINI_API_KEY` | None | API key for Google Gemini model calls |
+| `OPENAI_API_KEY` | None | API key for OpenAI model calls |
+| `DATABASE_URL` | `sqlite:///./macro_radar.db` | SQLAlchemy connection string |
+| `DEFAULT_POLL_INTERVAL`| `3600` | Fetch frequency in seconds |
+| `LLM_ROUTING_STRATEGY` | `smart_hybrid` | Strategy for routing between fast and reasoning models |
+
+## Notes and Constraints
+
+- Primary Source Availability: Government gazette and institutional sites occasionally employ rate-limiting or anti-bot protections. Scraping clients enforce user-agent rotations and sequential delays.
+- Model Fallback Logic: If the primary Google Gemini quota is exhausted (HTTP 429), the engine automatically falls back to `gpt-4o-mini` to prevent pipeline stalls.
+- Data Storage: Local SQLite storage is maintained in WAL mode (`macro_radar.db`). For concurrent write heavy scenarios, set connection timeouts appropriately.
