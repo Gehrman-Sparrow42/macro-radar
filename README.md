@@ -1,4 +1,4 @@
-# yatirim-radari
+# macro-radar
 
 Macroeconomic regulatory scraper, automated digest engine, and portfolio allocation decision-support terminal for Turkish and global financial markets.
 
