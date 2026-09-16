@@ -161,6 +161,19 @@ function renderBulletins(data) {
 
           <div class="card-title">${item.title}</div>
 
+          ${item.rotation_summary ? `
+            <div class="card-rotation-box">
+              <div class="rotation-badge-row">
+                <span class="rotation-summary-tag">⚖️ ${item.rotation_summary}</span>
+              </div>
+              ${item.rotation_rationale ? `
+                <div class="rotation-rationale-snippet">
+                  <b>📌 Neye Göre Öneri Yapıldı?</b> ${item.rotation_rationale}
+                </div>
+              ` : ""}
+            </div>
+          ` : ""}
+
           ${bistChipsHtml}
 
           ${item.simple_summary ? `<div class="card-simple-preview">💡 <b>Özet:</b> ${item.simple_summary}</div>` : ""}
@@ -265,6 +278,20 @@ function openModal(item) {
     );
   }
 
+  // Taktiksel Rotasyon ve Neye Göre Öneri Yapıldı? (Yasal / Makro Dayanak)
+  const rotContainer = document.getElementById("modal-rotation-container");
+  const rotSummary = document.getElementById("modal-rotation-summary");
+  const rotRationale = document.getElementById("modal-rotation-rationale");
+  if (rotContainer && rotSummary && rotRationale) {
+    if (item.rotation_summary) {
+      rotSummary.textContent = item.rotation_summary;
+      rotRationale.textContent = item.rotation_rationale || "Bu bültenin taktiksel varlık rotasyonu ve bilanço aktarım kanalı analizi yapılmıştır.";
+      rotContainer.style.display = "block";
+    } else {
+      rotContainer.style.display = "none";
+    }
+  }
+
   // BIST 30/100 Şirket ve Sektör Duyarlılık Bölümü
   const bistContainer = document.getElementById("modal-bist-tickers");
   if (bistContainer) {
@@ -277,25 +304,53 @@ function openModal(item) {
     } else {
       let html = "";
       if (favored.length > 0) {
-        html += `<div style="font-size: 0.82rem; font-weight: 700; color: #34d399; margin-bottom: 6px;">🟢 Olumlu Etkilenmesi Beklenen Şirketler:</div>`;
+        html += `<div style="font-size: 0.82rem; font-weight: 700; color: #34d399; margin-bottom: 8px;">🟢 Olumlu Etkilenmesi Beklenen Şirketler (Giriş / Ağırlık Artır):</div>`;
         favored.forEach((f) => {
           const ticker = (typeof f === "object" && f !== null) ? (f.ticker || f.name || "BIST") : String(f);
+          const name = (typeof f === "object" && f !== null && f.name) ? f.name : "";
           const reason = (typeof f === "object" && f !== null) ? (f.reason || "Makro politika kararı ile pozitif ayrışma potansiyeli.") : "Düzenleme ve makro politika kararı ile sektörel uyumlu.";
+          const action = (typeof f === "object" && f !== null && f.action) ? f.action : "GİR / AĞIRLIK ARTIR";
+          const criteria = (typeof f === "object" && f !== null && f.criteria) ? f.criteria : "Bilanço & Regülasyon Kalkanı";
+
           html += `
             <div class="bist-modal-card favored">
-              <b>${ticker}:</b> ${reason}
+              <div class="bist-modal-card-header">
+                <div class="bist-modal-ticker-group">
+                  <span class="bist-modal-ticker">🟢 ${ticker}</span>
+                  ${name && name !== ticker ? `<span class="bist-modal-name">(${name})</span>` : ""}
+                </div>
+                <div class="guidance-badges">
+                  <span class="action-pill action-pill-buy">${action}</span>
+                  <span class="criteria-pill">${criteria}</span>
+                </div>
+              </div>
+              <div class="bist-modal-reason">${reason}</div>
             </div>
           `;
         });
       }
       if (pressured.length > 0) {
-        html += `<div style="font-size: 0.82rem; font-weight: 700; color: #f87171; margin-top: 10px; margin-bottom: 6px;">🔴 Baskılanması / Temkinli Olunması Gerekenler:</div>`;
+        html += `<div style="font-size: 0.82rem; font-weight: 700; color: #f87171; margin-top: 14px; margin-bottom: 8px;">🔴 Baskılanması / Temkinli Olunması Gerekenler (Çıkış / Hafiflet):</div>`;
         pressured.forEach((p) => {
           const ticker = (typeof p === "object" && p !== null) ? (p.ticker || p.name || "BIST") : String(p);
+          const name = (typeof p === "object" && p !== null && p.name) ? p.name : "";
           const reason = (typeof p === "object" && p !== null) ? (p.reason || "Yüksek maliyet veya talep daralması baskısı.") : "Sıkılaşma veya maliyet artışı nedeniyle temkinli olunmalı.";
+          const action = (typeof p === "object" && p !== null && p.action) ? p.action : "ÇIK / HAFİFLET";
+          const criteria = (typeof p === "object" && p !== null && p.criteria) ? p.criteria : "Yüksek Faiz & Talep Baskısı";
+
           html += `
             <div class="bist-modal-card pressured">
-              <b>${ticker}:</b> ${reason}
+              <div class="bist-modal-card-header">
+                <div class="bist-modal-ticker-group">
+                  <span class="bist-modal-ticker">🔴 ${ticker}</span>
+                  ${name && name !== ticker ? `<span class="bist-modal-name">(${name})</span>` : ""}
+                </div>
+                <div class="guidance-badges">
+                  <span class="action-pill action-pill-sell">${action}</span>
+                  <span class="criteria-pill">${criteria}</span>
+                </div>
+              </div>
+              <div class="bist-modal-reason">${reason}</div>
             </div>
           `;
         });
@@ -371,6 +426,47 @@ async function loadPortfolioData() {
   }
 }
 
+function formatAgentDeskContent(rawText) {
+  if (!rawText) return "-";
+  // Convert literal \n or \\n into real newlines
+  let text = String(rawText).replace(/\\n/g, "\n");
+
+  // Fix any encoding artifacts
+  text = text.replace(/itibar\?yla/gi, "itibarıyla")
+             .replace(/S\?g/g, "Sığ");
+
+  // Split into paragraphs / lines
+  const rawParagraphs = text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+  let html = "";
+
+  rawParagraphs.forEach((p) => {
+    // Check if paragraph starts with a number like "1)" or "1."
+    const match = p.match(/^(\d+[\)\.])\s*(.*)/s);
+    if (match) {
+      const num = match[1];
+      const body = match[2];
+      // Highlight colon titles if present e.g. "SEDDK / Emeklilik Fonu Aktarım Kanalı:"
+      const colonIdx = body.indexOf(":");
+      let formattedBody = body;
+      if (colonIdx > 0 && colonIdx < 60) {
+        const titlePart = body.substring(0, colonIdx);
+        const restPart = body.substring(colonIdx + 1);
+        formattedBody = `<b class="agent-memo-item-title">${titlePart}:</b>${restPart}`;
+      }
+      html += `
+        <div class="agent-memo-item">
+          <span class="agent-memo-num">${num}</span>
+          <div class="agent-memo-body">${formattedBody}</div>
+        </div>
+      `;
+    } else {
+      html += `<p class="agent-memo-p">${p}</p>`;
+    }
+  });
+
+  return html || text;
+}
+
 async function loadAgentMemo() {
   const headlineEl = document.getElementById("agent-headline");
   if (!headlineEl) return;
@@ -392,7 +488,10 @@ async function loadAgentMemo() {
     if (document.getElementById("agent-author-title")) {
       document.getElementById("agent-author-title").textContent = (memo.author || "ANTIGRAVITY BAŞ STRATEJİST MASASI").toUpperCase();
     }
-    headlineEl.textContent = memo.headline || "Taktiksel Makro Değerlendirme";
+    headlineEl.textContent = String(memo.headline || "Taktiksel Makro Değerlendirme")
+      .replace(/itibar\?yla/gi, "itibarıyla")
+      .replace(/S\?g/g, "Sığ");
+
     if (document.getElementById("agent-verdict")) {
       document.getElementById("agent-verdict").textContent = `📌 Makro Teşhis: ${memo.macro_verdict || "Dengeli"}`;
     }
@@ -401,10 +500,10 @@ async function loadAgentMemo() {
       document.getElementById("agent-memo-date").textContent = `🕒 Rapor: ${dt}`;
     }
     if (document.getElementById("agent-simple-guidance")) {
-      document.getElementById("agent-simple-guidance").textContent = memo.summary_guidance || "-";
+      document.getElementById("agent-simple-guidance").innerHTML = formatAgentDeskContent(memo.summary_guidance);
     }
     if (document.getElementById("agent-tech-analysis")) {
-      document.getElementById("agent-tech-analysis").textContent = memo.technical_analysis || "-";
+      document.getElementById("agent-tech-analysis").innerHTML = formatAgentDeskContent(memo.technical_analysis);
     }
 
     const tickersContainer = document.getElementById("agent-tickers-container");
@@ -414,18 +513,24 @@ async function loadAgentMemo() {
 
       let html = "";
       favs.forEach((f) => {
+        const ticker = String(f.ticker || f).replace(/S\?g/g, "Sığ");
+        const name = String(f.name || "").replace(/S\?g/g, "Sığ");
+        const reason = String(f.reason || "Pozitif bilanço ve makro kalkan.").replace(/itibar\?yla/gi, "itibarıyla");
         html += `
           <div class="agent-ticker-tag fav">
-            <div class="agent-ticker-symbol">🟢 ${f.ticker || f} ${f.name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${f.name})</span>` : ""}</div>
-            <div class="agent-ticker-reason">${f.reason || "Pozitif bilanço ve makro kalkan."}</div>
+            <div class="agent-ticker-symbol">🟢 ${ticker} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${name})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${reason}</div>
           </div>
         `;
       });
       prss.forEach((p) => {
+        const ticker = String(p.ticker || p).replace(/S\?g/g, "Sığ");
+        const name = String(p.name || "").replace(/S\?g/g, "Sığ");
+        const reason = String(p.reason || "Yüksek finansman maliyeti veya marj baskısı.").replace(/itibar\?yla/gi, "itibarıyla");
         html += `
           <div class="agent-ticker-tag prs">
-            <div class="agent-ticker-symbol">🔴 ${p.ticker || p} ${p.name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${p.name})</span>` : ""}</div>
-            <div class="agent-ticker-reason">${p.reason || "Yüksek finansman maliyeti veya marj baskısı."}</div>
+            <div class="agent-ticker-symbol">🔴 ${ticker} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${name})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${reason}</div>
           </div>
         `;
       });
@@ -533,6 +638,12 @@ function renderPortfolio(copilot) {
             <div class="tactical-card" style="border-color: ${borderColor};">
               <div class="tactical-headline">${act.headline}</div>
               <div class="tactical-instruction">${act.instruction}</div>
+              ${act.rationale ? `
+                <div class="tactical-rationale-box">
+                  <span class="tactical-rationale-title">🔍 Neye Göre Bu Öneri Yapıldı? (Yasal & Makro Dayanak)</span>
+                  <p class="tactical-rationale-text">${act.rationale}</p>
+                </div>
+              ` : ""}
             </div>
           `;
         })
@@ -617,8 +728,14 @@ function renderPortfolio(copilot) {
       .map(
         (item) => `
         <div class="guidance-item" style="border-left: 3px solid #10b981;">
-          <div class="guidance-ticker" style="color: #34d399;">🟢 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
-          <div style="color: #cbd5e1; line-height: 1.4;">${item.reason}</div>
+          <div class="guidance-header-row">
+            <div class="guidance-ticker" style="color: #34d399;">🟢 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
+            <div class="guidance-badges">
+              <span class="action-pill action-pill-buy">${item.action || "GİR / AĞIRLIK ARTIR"}</span>
+              <span class="criteria-pill">${item.criteria || "Bilanço Kalkanı"}</span>
+            </div>
+          </div>
+          <div class="guidance-reason">${item.reason}</div>
         </div>
       `
       )
@@ -631,8 +748,14 @@ function renderPortfolio(copilot) {
       .map(
         (item) => `
         <div class="guidance-item" style="border-left: 3px solid #ef4444;">
-          <div class="guidance-ticker" style="color: #f87171;">🔴 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
-          <div style="color: #cbd5e1; line-height: 1.4;">${item.reason}</div>
+          <div class="guidance-header-row">
+            <div class="guidance-ticker" style="color: #f87171;">🔴 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
+            <div class="guidance-badges">
+              <span class="action-pill action-pill-sell">${item.action || "ÇIK / HAFİFLET"}</span>
+              <span class="criteria-pill">${item.criteria || "Yüksek Faiz Baskısı"}</span>
+            </div>
+          </div>
+          <div class="guidance-reason">${item.reason}</div>
         </div>
       `
       )

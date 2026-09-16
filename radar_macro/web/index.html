@@ -134,7 +134,7 @@
 
           <!-- Hızlı Tematik Mevzuat ve Yasa Filtreleri -->
           <div class="toolbar-row toolbar-row-presets">
-            <span class="filter-title" style="color: #a78bfa; font-weight: 600;">⚡ Hızlı Mevzuat & Yasa Filtreleri:</span>
+            <span class="filter-title filter-title-highlight">⚡ Hızlı Mevzuat & Yasa Filtreleri:</span>
             <div class="preset-chips-container">
               <button class="preset-chip active" data-search-preset="">Tümü (Sıfırla)</button>
               <button class="preset-chip" data-search-preset="fon">📜 Fonları Değiştiren Yasalar & TEFAS</button>
@@ -185,7 +185,7 @@
             <span>⚡</span>
             <span id="agent-author-title">ANTIGRAVITY BAŞ STRATEJİST MASASI</span>
           </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
+          <div class="agent-badge-meta-group">
             <span id="agent-memo-date" class="memory-token-badge">Tarih: Güncelleniyor...</span>
             <span class="agent-badge-free">0 TL API Maliyeti</span>
           </div>
@@ -196,7 +196,7 @@
 
         <div class="agent-desk-grid">
           <div class="agent-desk-box">
-            <div class="agent-desk-box-title" style="color: #60a5fa;">
+            <div class="agent-desk-box-title agent-box-title-blue">
               <span>🗣️</span>
               <span>SADE DİLLE YATIRIMCI REHBERİ (NE YAPILMALI?)</span>
             </div>
@@ -204,7 +204,7 @@
           </div>
 
           <div class="agent-desk-box">
-            <div class="agent-desk-box-title" style="color: #c084fc;">
+            <div class="agent-desk-box-title agent-box-title-purple">
               <span>🔬</span>
               <span>DERİN EKONOMETRİK & WACC ANALİZİ</span>
             </div>
@@ -213,7 +213,7 @@
         </div>
 
         <div>
-          <div style="font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 8px; letter-spacing: 0.5px;">
+          <div class="agent-tickers-header">
             📌 STRATEJİSTİN TAKTİKSEL BIST 30 / 100 POZİSYONLARI:
           </div>
           <div id="agent-tickers-container" class="agent-tickers-row">
@@ -482,6 +482,18 @@
         <div class="technical-analysis-box">
           <div class="section-title section-title-indigo">🔬 Teknik Analiz & Finansal Mekanizma (Profesyoneller İçin)</div>
           <p id="modal-technical" class="technical-analysis-text"></p>
+        </div>
+
+        <!-- Taktiksel Rotasyon & Neye Göre Öneri Yapıldı? -->
+        <div id="modal-rotation-container" class="rotation-rationale-section">
+          <div class="rotation-section-header">
+            <span class="rotation-section-badge">⚖️ TAKTİKSEL ROTASYON</span>
+            <div id="modal-rotation-summary" class="rotation-section-summary"></div>
+          </div>
+          <div class="rotation-section-body">
+            <div class="rotation-section-title">📌 Neye Göre Bu Öneri Yapıldı? (Yasal / Makro Dayanak ve Bilanço Mekanizması)</div>
+            <p id="modal-rotation-rationale" class="rotation-section-text"></p>
+          </div>
         </div>
 
         <!-- BIST 30/100 Şirket ve Sektör Duyarlılık Etkisi -->

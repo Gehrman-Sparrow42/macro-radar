@@ -159,11 +159,15 @@ class BasePipeline(ABC):
             logger.warning("No LLM API keys detected. Utilizing heuristic analytical fallback.")
             return self._heuristic_fallback_analysis(item)
 
-        return self.llm_engine.analyze_structured(
-            prompt=prompt,
-            response_schema=StructuredAnalysisOutput,
-            task_type="news_analysis",
-        )
+        try:
+            return self.llm_engine.analyze_structured(
+                prompt=prompt,
+                response_schema=StructuredAnalysisOutput,
+                task_type="news_analysis",
+            )
+        except Exception as exc:
+            logger.warning("LLM extraction failed (%s). Falling back to dual-layer heuristic analysis.", exc)
+            return self._heuristic_fallback_analysis(item)
 
     def _heuristic_fallback_analysis(self, item: RawData) -> StructuredAnalysisOutput:
         """Heuristic offline analysis generator for local testing without active API credits."""

@@ -128,7 +128,7 @@ class LLMEngine:
         - critical_shock: o1 -> GPT-4o -> GPT-4o-mini -> Gemini Flash
         """
         if task_type == "news_analysis":
-            provider_order = [("gemini", self.gemini_model), ("openai", self.openai_model_fast)]
+            provider_order = [("openai", self.openai_model_fast), ("gemini", self.gemini_model)]
         elif task_type == "portfolio_copilot":
             provider_order = [
                 ("openai", self.openai_model_reasoning),

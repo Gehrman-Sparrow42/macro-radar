@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import hashlib
 import re
 from typing import Any, Literal
-from pydantic import BaseModel, Field as PydanticField
+from pydantic import BaseModel, Field as PydanticField, field_validator
 from sqlmodel import Column, DateTime, Field, Relationship, SQLModel, JSON
 
 
@@ -56,6 +56,15 @@ class StructuredAnalysisOutput(BaseModel):
         default_factory=dict,
         description="Key numerical scores (e.g. relevance 0-100, confidence 0-1) and semantic tags."
     )
+
+    @field_validator("detailed_reasoning", mode="before")
+    @classmethod
+    def coerce_detailed_reasoning(cls, v: Any) -> str:
+        if isinstance(v, dict):
+            return "\n".join(f"{k}: {val}" for k, val in v.items())
+        if isinstance(v, list):
+            return "\n".join(str(x) for x in v)
+        return str(v) if v is not None else ""
 
 
 # ---------------------------------------------------------------------------

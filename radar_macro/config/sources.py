@@ -47,6 +47,16 @@ MACRO_SOURCES: list[dict[str, Any]] = [
         "enabled": True,
     },
     {
+        "source_name": "SEDDK_Mevzuat",
+        "category": "Insurance & Pension Regulator",
+        "jurisdiction": "Turkey",
+        "strategy": "turkish_official",
+        "sub_strategy": "seddk_mevzuat",
+        "url": "https://www.seddk.gov.tr/tr/mevzuat/sigortacilik/yonetmelikler",
+        "limit": 8,
+        "enabled": True,
+    },
+    {
         "source_name": "Dunya_Ekonomi",
         "category": "Macro Shift",
         "jurisdiction": "Turkey",

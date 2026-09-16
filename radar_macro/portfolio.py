@@ -103,6 +103,41 @@ def save_user_portfolio_weights(weights: dict[str, float], user_key: str = "defa
     return clean_weights
 
 
+def _generate_action_rationale(from_asset: str, to_asset: str, regime_code: str) -> str:
+    """Neye göre bu varlık rotasyonunun önerildiğini açıklayan derin makro gerekçe."""
+    if from_asset == "bist" and to_asset == "mevduat":
+        return (
+            "Dayanak: TCMB'nin %50 politika faizi çıpası, gecelik repo sterilizasyonu ve BDDK'nın kredi büyüme sınırları. "
+            "Neye Göre Önerildi?: Risksiz getiri oranının yıllık bileşik %48-52 bandında seyretmesi, BIST şirketleri için ağırlıklı sermaye maliyetini (WACC) yükselterek F/K çarpanlarını baskılamaktadır. "
+            "Yüksek faiz ortamında borçlu ve faize duyarlı şirketlerden çıkıp risksiz yüksek TL faizine geçmek portföy getirisini ve sermayeyi korur."
+        )
+    elif from_asset == "mevduat" and to_asset == "bist":
+        return (
+            "Dayanak: Parasal genişleme / faiz indirim döngüsü ve SEDDK BES zorunlu hisse alım düzenlemeleri. "
+            "Neye Göre Önerildi?: Azalan mevduat faizi karşısında sermayenin kurumsal fonlar ve BES devlet katkısı havuzu aracılığıyla BIST 30 lokomotiflerine akması, hisse değerlemelerinde güçlü yukarı yönlü çarpan genişlemesi yaratmaktadır."
+        )
+    elif from_asset == "doviz" and to_asset == "mevduat":
+        return (
+            "Dayanak: TCMB'nin TL'yi koruyan pozitif reel faiz mimarisi ve KKM'den TL mevduata dönüşüm tebliğleri. "
+            "Neye Göre Önerildi?: Dolar/TL kurundaki kontrollü ılımlı seyir karşısında, %50'lik TL mevduat faizi yıllık net %20+ reel kur arbitrajı sunmaktadır. Dövizin yatay seyrinde TL nakit taşımak getiri farkı yaratır."
+        )
+    elif from_asset == "bist" and to_asset == "altin":
+        return (
+            "Dayanak: Küresel jeopolitik krizler ve küresel merkez bankalarının faiz indirim sinyalleri. "
+            "Neye Göre Önerildi?: BIST hisselerinde artan volatiliteye karşı küresel ons altındaki yükseliş ve Dolar/TL kur kalkanı Gram Altını en güçlü defansif sigorta haline getirmektedir."
+        )
+    elif from_asset == "dibs" and to_asset == "bist":
+        return (
+            "Dayanak: Türkiye CDS risk priminin daralması ve yabancı kurumsal hisse girişi. "
+            "Neye Göre Önerildi?: Tahvil getirileri doygunluğa ulaştığında kurumsal fonlar daha yüksek getiri arayışıyla BIST 30 hisselerine kaymaktadır."
+        )
+    return (
+        f"Dayanak: Aktif Makro Rejim ({regime_code}). "
+        f"Neye Göre Önerildi?: {ASSET_LABELS.get(from_asset, from_asset)} varlığının risk/getiri oranı zayıflarken, "
+        f"{ASSET_LABELS.get(to_asset, to_asset)} varlığı güncel makroekonomik ve yasal düzenlemeler çerçevesinde asimetrik getiri avantajı sunmaktadır."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tactical Allocation & Rebalancing Algorithm
 # ---------------------------------------------------------------------------
@@ -233,6 +268,7 @@ def compute_tactical_copilot(
                 f"Mevcut {ASSET_LABELS[from_asset]} pozisyonunuzdan yaklaşık %{alloc_move:.0f} kâr satışı/çıkış yaparak "
                 f"açığa çıkan nakdi %{alloc_move:.0f} oranında {ASSET_LABELS[to_asset]} tarafına aktarınız."
             ),
+            "rationale": _generate_action_rationale(from_asset, to_asset, regime_code),
         })
 
     # İkinci ikili hamle (varsa)
@@ -253,6 +289,7 @@ def compute_tactical_copilot(
                     f"{ASSET_LABELS[sec_from[0]]} ağırlığınızı %{sec_amt:.0f} hafifleterek "
                     f"{ASSET_LABELS[sec_to[0]]} varlıklarına ekleme yapınız."
                 ),
+                "rationale": _generate_action_rationale(sec_from[0], sec_to[0], regime_code),
             })
 
     if not tactical_actions:
@@ -260,6 +297,7 @@ def compute_tactical_copilot(
             "action_type": "HOLD",
             "headline": "✅ Mevcut Portföy Dağılımınız Makro Rejimle Uyumlu",
             "instruction": "Mevcut varlık oranlarınız güncel faiz ve piyasa şartlarıyla dengeli durumdadır; şu an için radikal bir çıkış veya geçiş yapmanıza gerek yoktur.",
+            "rationale": "Portföy ağırlıklarınız TCMB politika faizi çıpası ve güncel makro göstergelerle dengelidir.",
         })
 
     # 5. Çift Katmanlı Gerekçelendirme Metinleri (Sade + Teknik)
@@ -344,38 +382,38 @@ def compute_tactical_copilot(
     if regime_code == "TIGHT_MONEY_HIGH_TL_YIELD":
         bist_guidance = {
             "top_favored": [
-                {"ticker": "ENKAI", "name": "Enka İnşaat", "reason": "Devasa net nakit ve döviz rezervi; faizler arttıkça finansman geliri yazar."},
-                {"ticker": "BIMAS", "name": "BİM Mağazalar", "reason": "Borçsuz defansif perakende kalesi; enflasyon ve faiz şoklarına dayanıklı."},
-                {"ticker": "FROTO", "name": "Ford Otosan", "reason": "İhracat ağırlıklı döviz cirosu ile iç talep yavaşlamasından korunur."},
-                {"ticker": "TCELL", "name": "Turkcell", "reason": "Defansif temel hizmet sağlayıcı; güçlü nakit üretimi ve fiyatlama gücü."},
+                {"ticker": "ENKAI", "name": "Enka İnşaat", "reason": "Devasa net nakit ve döviz rezervi; faizler arttıkça finansman geliri yazar.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Net Nakit Zengini & Yüksek Faiz Geliri"},
+                {"ticker": "BIMAS", "name": "BİM Mağazalar", "reason": "Borçsuz defansif perakende kalesi; enflasyon ve faiz şoklarına dayanıklı.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Sıfır Borç & Enflasyon Kalkanı"},
+                {"ticker": "FROTO", "name": "Ford Otosan", "reason": "İhracat ağırlıklı döviz cirosu ile iç talep yavaşlamasından korunur.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "%80+ Döviz Geliri & Avrupa İhracatı"},
+                {"ticker": "TCELL", "name": "Turkcell", "reason": "Defansif temel hizmet sağlayıcı; güçlü nakit üretimi ve fiyatlama gücü.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Öngörülebilir Nakit Akışı"},
             ],
             "top_avoid": [
-                {"ticker": "EKGYO", "name": "Emlak Konut", "reason": "Yüksek konut kredisi faizleri gayrimenkul talebini ve satışlarını dondurur."},
-                {"ticker": "Yüksek Borçlu KOBİ'ler", "name": "Yüksek Finansman Borçlular", "reason": "Artan kredi faizleri net kârı finansman gideri olarak tüketir."},
-                {"ticker": "SOKM", "name": "Şok Marketler", "reason": "Kaldıraçlı büyüme modeli yüksek faiz ortamında marj daralması yaşar."},
+                {"ticker": "EKGYO", "name": "Emlak Konut", "reason": "Yüksek konut kredisi faizleri gayrimenkul talebini ve satışlarını dondurur.", "action": "ÇIK / HAFİFLET", "criteria": "Aylık %3+ Konut Kredisi Faizi"},
+                {"ticker": "Yüksek Borçlu KOBİ'ler", "name": "Yüksek Finansman Borçlular", "reason": "Artan kredi faizleri net kârı finansman gideri olarak tüketir.", "action": "ÇIK / HAFİFLET", "criteria": "%60+ Ticari Kredi Faizi & Ağır Borç"},
+                {"ticker": "SOKM", "name": "Şok Marketler", "reason": "Kaldıraçlı büyüme modeli yüksek faiz ortamında marj daralması yaşar.", "action": "ÇIK / HAFİFLET", "criteria": "Kaldıraçlı Finansman Yükü"},
             ],
         }
     elif regime_code == "EASING_RISK_ON":
         bist_guidance = {
             "top_favored": [
-                {"ticker": "GARAN / AKBNK", "name": "Özel Bankalar", "reason": "Mevduat maliyeti hızla düşerken net faiz marjı fırlar."},
-                {"ticker": "EKGYO", "name": "Emlak Konut", "reason": "Kredi faizlerinin düşmesiyle konut ve arsa satışları canlanır."},
-                {"ticker": "THYAO", "name": "Türk Hava Yolları", "reason": "Ekonomik canlılık ve tüketici talebiyle yolcu trafiği artar."},
+                {"ticker": "GARAN / AKBNK", "name": "Özel Bankalar", "reason": "Mevduat maliyeti hızla düşerken net faiz marjı fırlar.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Genişleyen Net Faiz Marjı (NIM)"},
+                {"ticker": "EKGYO", "name": "Emlak Konut", "reason": "Kredi faizlerinin düşmesiyle konut ve arsa satışları canlanır.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Düşen Konut Kredisi Faizleri"},
+                {"ticker": "THYAO", "name": "Türk Hava Yolları", "reason": "Ekonomik canlılık ve tüketici talebiyle yolcu trafiği artar.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Artan Küresel Risk İştahı"},
             ],
             "top_avoid": [
-                {"ticker": "ENKAI", "name": "Enka İnşaat", "reason": "Faiz gelirlerinin gerilemesi nedeniyle büyüme hisselerinin gerisinde kalabilir."},
-                {"ticker": "Sadece TL Nakitte Kalanlar", "name": "TL Likidite", "reason": "Düşen faiz karşısında hisse senedi getirilerinin gerisinde kalır."},
+                {"ticker": "ENKAI", "name": "Enka İnşaat", "reason": "Faiz gelirlerinin gerilemesi nedeniyle büyüme hisselerinin gerisinde kalabilir.", "action": "ÇIK / HAFİFLET", "criteria": "Düşen Faiz Geliri"},
+                {"ticker": "Sadece TL Nakitte Kalanlar", "name": "TL Likidite", "reason": "Düşen faiz karşısında hisse senedi getirilerinin gerisinde kalır.", "action": "ÇIK / HAFİFLET", "criteria": "Faiz İndiriminde Reel Getiri Kaybı"},
             ],
         }
     else:
         bist_guidance = {
             "top_favored": [
-                {"ticker": "FROTO", "name": "Ford Otosan", "reason": "Güçlü ihracat geliri ve sağlam bilanço."},
-                {"ticker": "BIMAS", "name": "BİM Mağazalar", "reason": "Piyasa dalgalanmalarına karşı sağlam defansif yapı."},
-                {"ticker": "TUPRS", "name": "Tüpraş", "reason": "Döviz bazlı rafineri marjları ve yüksek temettü potansiyeli."},
+                {"ticker": "FROTO", "name": "Ford Otosan", "reason": "Güçlü ihracat geliri ve sağlam bilanço.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Döviz İhracatı Güvencesi"},
+                {"ticker": "BIMAS", "name": "BİM Mağazalar", "reason": "Piyasa dalgalanmalarına karşı sağlam defansif yapı.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Defansif Nakit Üretimi"},
+                {"ticker": "TUPRS", "name": "Tüpraş", "reason": "Döviz bazlı rafineri marjları ve yüksek temettü potansiyeli.", "action": "GİR / AĞIRLIK ARTIR", "criteria": "Yüksek Temettü & Rafineri Marjı"},
             ],
             "top_avoid": [
-                {"ticker": "Döviz Açık Pozisyonlu Şirketler", "name": "Yüksek Borçlu Sanayi", "reason": "Kur ve faiz dalgalanmalarına karşı savunmasız."},
+                {"ticker": "Döviz Açık Pozisyonlu Şirketler", "name": "Yüksek Borçlu Sanayi", "reason": "Kur ve faiz dalgalanmalarına karşı savunmasız.", "action": "ÇIK / HAFİFLET", "criteria": "Kur & Faiz Dalgalanması Hassasiyeti"},
             ],
         }
 

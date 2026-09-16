@@ -202,7 +202,7 @@ def get_metrics() -> dict[str, Any]:
 
 
 def _normalize_bist_tickers(bist_dict: Any) -> dict[str, list[dict[str, str]]]:
-    """Ensures every favored/pressured element is a valid dict with ticker and reason keys."""
+    """Ensures every favored/pressured element is a valid dict with ticker, name, reason, criteria, and action."""
     if not isinstance(bist_dict, dict):
         return {"favored": [], "pressured": []}
     favored: list[dict[str, str]] = []
@@ -210,24 +210,36 @@ def _normalize_bist_tickers(bist_dict: Any) -> dict[str, list[dict[str, str]]]:
         if isinstance(f, dict):
             favored.append({
                 "ticker": str(f.get("ticker", "BIST")),
-                "reason": str(f.get("reason", "Makro politika kararı ile pozitif uyumlu."))
+                "name": str(f.get("name", f.get("ticker", "BIST"))),
+                "reason": str(f.get("reason", "Makro politika kararı ile pozitif uyumlu.")),
+                "criteria": str(f.get("criteria", "Bilanço & Regülasyon Kalkanı")),
+                "action": str(f.get("action", "GİR / AĞIRLIK ARTIR")),
             })
         elif isinstance(f, str) and f.strip():
             favored.append({
                 "ticker": f.strip(),
-                "reason": "Düzenleme ve makro politika ile sektörel pozitif ayrışma potansiyeli."
+                "name": f.strip(),
+                "reason": "Düzenleme ve makro politika ile sektörel pozitif ayrışma potansiyeli.",
+                "criteria": "Sektörel Ayrışma",
+                "action": "GİR / AĞIRLIK ARTIR",
             })
     pressured: list[dict[str, str]] = []
     for p in bist_dict.get("pressured", []):
         if isinstance(p, dict):
             pressured.append({
                 "ticker": str(p.get("ticker", "BIST")),
-                "reason": str(p.get("reason", "Sıkılaşma / maliyet baskısı altında temkinli olunmalı."))
+                "name": str(p.get("name", p.get("ticker", "BIST"))),
+                "reason": str(p.get("reason", "Sıkılaşma / maliyet baskısı altında temkinli olunmalı.")),
+                "criteria": str(p.get("criteria", "Yüksek Faiz & Talep Baskısı")),
+                "action": str(p.get("action", "ÇIK / HAFİFLET")),
             })
         elif isinstance(p, str) and p.strip():
             pressured.append({
                 "ticker": p.strip(),
-                "reason": "Sıkılaşma veya talep daralması baskısı altında temkinli olunmalı."
+                "name": p.strip(),
+                "reason": "Sıkılaşma veya talep daralması baskısı altında temkinli olunmalı.",
+                "criteria": "Maliyet Baskısı",
+                "action": "ÇIK / HAFİFLET",
             })
     return {"favored": favored, "pressured": pressured}
 
@@ -340,6 +352,8 @@ def get_bulletins(
             "jurisdiction": item_jur,
             "asset_impact": m.get("asset_impact", {}),
             "bist_tickers": bist_tickers,
+            "rotation_summary": m.get("rotation_summary"),
+            "rotation_rationale": m.get("rotation_rationale"),
             "relevance_score": m.get("relevance_score", 85),
             "simple_summary": m.get("simple_summary"),
             "technical_analysis": m.get("technical_analysis"),
