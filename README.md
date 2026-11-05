@@ -1,136 +1,63 @@
-# macro-radar
+# Macro Radar · Yatırım Radarı
 
-Macroeconomic regulatory scraper, automated digest engine, and portfolio allocation decision-support terminal for Turkish and global financial markets.
+A local research terminal that collects Turkish and global macroeconomic releases, organizes policy developments, and summarizes their possible portfolio implications.
 
-## Overview
+The terminal brings regulatory bulletins, analysis, source coverage, period digests, and portfolio settings into a single browser interface. It retains raw items and structured analysis so users can trace a summary back to its source.
 
-Yatırım Radarı is an automated intelligence pipeline and local analytical terminal. It ingests primary regulatory and monetary policy bulletins (TCMB, BDDK, Turkish Official Gazette, BloombergHT, and global central bank feeds), filters legislative and interest rate actions into structured SQLite storage, generates a monthly rolling macroeconomic memory digest, and provides asset-allocation tactical guidance through a local FastAPI web interface.
-
-## Architecture and Pipeline
-
-The application operates as a sequential data ingestion and decision engine with hierarchical model fallback.
+## Architecture and pipeline
 
 ```mermaid
 flowchart LR
-    A[Regulatory and News Sources] --> B[Data Fetchers and Parsers]
-    B --> C[SQLite Local Storage]
-    C --> D[Monthly Memory Rollup Engine]
-    D --> E[Hybrid LLM Reasoning Layer]
-    F[User Asset Allocation Input] --> E
-    E --> G[FastAPI Terminal Interface]
-    G --> H[Tactical Rebalance Directives]
+    Sources["Regulatory, central bank and news sources"] --> Fetch["RSS and source-specific fetchers"]
+    Fetch --> Ingest["Normalize and deduplicate"]
+    Ingest --> Raw[("Raw items in SQLite")]
+    Raw --> Filter["Filter and analyze queued items"]
+    Filter --> Model["Gemini or OpenAI model routing"]
+    Model --> Analysis[("Structured analysis in SQLite")]
+    Analysis --> Memory["Period digests"]
+    Analysis --> API["FastAPI terminal"]
+    Memory --> API
+    Portfolio["Portfolio settings"] --> API
+    API --> Browser["Bulletins, memory and strategy views"]
 ```
 
-- Data Ingestion: Asynchronous and scheduled fetchers poll primary sources (Central Bank of Turkey, Banking Regulation and Supervision Agency, Official Gazette, BloombergHT RSS/HTML) at configurable intervals.
-- Normalization and Filtering: HTML and RSS payloads are parsed using BeautifulSoup and Feedparser. Articles and decrees are validated against content-length and keyword thresholds, then persisted into `macro_radar.db`.
-- Macro Memory Engine: Aggregates historical items into calendar-month summaries (30-day and 90-day rolling digests) to preserve longitudinal policy context without context-window overflow.
-- Reasoning Layer: Uses dual-provider LLM routing. High-frequency classification and parsing use Gemini Flash with automatic failover to GPT-4o-mini. Complex multi-asset allocation decisions route through reasoning models (OpenAI o1 / GPT-4o).
-- Delivery: A local FastAPI dashboard serves the terminal UI, showing regulatory alerts, sentiment scores, macro indicators, and portfolio reallocation guidance.
+- **Ingestion** uses the [source registry](radar_macro/config/sources.py) to select feeds. The pipeline supports filtering by category and jurisdiction and tracks duplicate records.
+- **Analysis** extracts structured policy and market-impact signals and maps relevant sectors to BIST tickers. Model selection follows the configured routing strategy.
+- **Research terminal** reads stored bulletins, digests, portfolio settings, and strategy memos. The API can trigger ingestion and digest generation from the interface.
 
-## Tech Stack
+## Quick start
 
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| Runtime | Python 3.10+ | Core language environment |
-| Backend Server | FastAPI, Uvicorn | Local analytical web server and REST API |
-| Database | SQLite, SQLAlchemy 2.0+ | Relational persistence for news, digests, and portfolio state |
-| Ingestion / Parsing | HTTPX, BeautifulSoup4, Feedparser | Network client and DOM parsing utilities |
-| Intelligence Routing | Google GenAI SDK, OpenAI Python SDK | Dual-provider LLM routing and reasoning engine |
-| Frontend | HTML5, CSS3, Vanilla JavaScript | Responsive terminal dashboard |
+Use Python 3.10+ and a Gemini or OpenAI key for model-backed analysis. Run from the repository root so the environment file and default SQLite path resolve consistently.
 
-## Project Structure
-
-```text
-YATIRIM_RADARI/
-├── .env.example              # Environment variables template
-├── .gitignore                # Git ignore rules
-├── README.md                 # Technical documentation
-├── requirements.txt          # Python dependency manifest
-├── Run_Terminal.bat          # Windows batch startup launcher
-├── run.py                    # Application bootstrap and entrypoint
-├── radar_core/               # Shared abstractions and data contracts
-│   ├── core/                 # LLM engine, schemas, and persistence
-│   └── pipelines/            # Base pipeline definitions
-├── radar_macro/              # Macro intelligence module
-│   ├── config/               # Source endpoints and scraping rules
-│   ├── fetchers/             # Domain-specific web scrapers
-│   ├── portfolio.py          # Allocation and asset scoring logic
-│   ├── server.py             # FastAPI routing and endpoints
-│   └── web/                  # HTML templates, stylesheets, and client JS
-└── scripts/                  # Seed, migration, and verification utilities
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt -r radar_core/requirements.txt
+Copy-Item .env.example .env
 ```
 
-## Setup and Prerequisites
+Fill in the key and model settings for the provider you plan to use. Start the terminal and open `http://127.0.0.1:8501/`.
 
-### Prerequisites
-- Python 3.10 or higher
-- Valid API keys for Google Gemini and/or OpenAI
-
-### Installation
-
-1. Navigate to the project directory:
-   ```bash
-   cd c:/Tools/YATIRIM_RADARI
-   ```
-
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
-   ```
-
-3. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Initialize environment configuration:
-   ```bash
-   copy .env.example .env
-   ```
-
-5. Set your provider credentials in `.env`:
-   ```ini
-   GEMINI_API_KEY="your_gemini_api_key"
-   OPENAI_API_KEY="your_openai_api_key"
-   DATABASE_URL="sqlite:///./macro_radar.db"
-   ```
-
-## Usage Examples
-
-### Starting the Intelligence Terminal
-Run the main startup script:
-```bash
-python run.py
-```
-Or execute the Windows launcher:
-```bash
-Run_Terminal.bat
+```powershell
+python run.py --dashboard
 ```
 
-The terminal interface will be accessible at:
-```text
-http://127.0.0.1:8501
-```
+| Command | Behavior |
+| --- | --- |
+| `python run.py --help` | Show supported flags without launching a cycle |
+| `python run.py --init-db` | Initialize the macro database and exit |
+| `python run.py --run-once` | Fetch and analyze one batch across configured sources |
+| `python run.py --scheduled --interval 3600` | Repeat the cycle once per hour |
+| `python run.py --dashboard --port 8503 --no-browser` | Bind the local terminal to a custom port |
 
-### Running Headless Intelligence Scrape
-To trigger a manual ingestion cycle without launching the full web dashboard:
-```bash
-python -c "from radar_macro.server import run_scraping_cycle; run_scraping_cycle()"
-```
+Set `DATABASE_URL` to override the default `sqlite:///./macro_radar.db`. The [environment template](.env.example) lists model and routing settings. Live source coverage depends on feed availability and upstream formats. Model-generated summaries are research inputs and may need to be checked against the underlying release.
 
-### Configuration Environment Variables
+## Code map
 
-| Variable | Default Value | Description |
-| :--- | :--- | :--- |
-| `GEMINI_API_KEY` | None | API key for Google Gemini model calls |
-| `OPENAI_API_KEY` | None | API key for OpenAI model calls |
-| `DATABASE_URL` | `sqlite:///./macro_radar.db` | SQLAlchemy connection string |
-| `DEFAULT_POLL_INTERVAL`| `3600` | Fetch frequency in seconds |
-| `LLM_ROUTING_STRATEGY` | `smart_hybrid` | Strategy for routing between fast and reasoning models |
-
-## Notes and Constraints
-
-- Primary Source Availability: Government gazette and institutional sites occasionally employ rate-limiting or anti-bot protections. Scraping clients enforce user-agent rotations and sequential delays.
-- Model Fallback Logic: If the primary Google Gemini quota is exhausted (HTTP 429), the engine automatically falls back to `gpt-4o-mini` to prevent pipeline stalls.
-- Data Storage: Local SQLite storage is maintained in WAL mode (`macro_radar.db`). For concurrent write heavy scenarios, set connection timeouts appropriately.
+| Component | Responsibility |
+| --- | --- |
+| [CLI runner](radar_macro/run.py) | Dashboard, one-off ingestion and scheduling |
+| [Macro pipeline](radar_macro/pipeline.py) and [base pipeline](radar_core/pipelines/base_pipeline.py) | Source selection, queue processing and structured analysis |
+| [LLM engine](radar_core/core/llm_engine.py) and [data models](radar_core/core/models.py) | Provider calls and persistence contracts |
+| [Memory engine](radar_macro/memory_engine.py) and [portfolio module](radar_macro/portfolio.py) | Period summaries and portfolio state |
+| [FastAPI server](radar_macro/server.py) and [terminal UI](radar_macro/web/) | Browser interface and operations |
