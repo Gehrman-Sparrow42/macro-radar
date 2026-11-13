@@ -3,6 +3,19 @@
  */
 
 const API_BASE = "";
+let _localSettingsToken = null;
+
+async function ensureLocalToken() {
+  if (_localSettingsToken) return _localSettingsToken;
+  const res = await fetch(`${API_BASE}/api/settings`);
+  if (res.ok) {
+    const data = await res.json();
+    if (data && data.local_token) {
+      _localSettingsToken = data.local_token;
+    }
+  }
+  return _localSettingsToken;
+}
 
 export const MacroAPI = {
   async getMetrics() {
@@ -46,8 +59,10 @@ export const MacroAPI = {
     return await res.json();
   },
 
-  async getPortfolio(userKey = "default_user") {
-    const res = await fetch(`${API_BASE}/api/portfolio?user_key=${encodeURIComponent(userKey)}`);
+  async getPortfolio(userKey = "default_user", refreshAi = false) {
+    const query = new URLSearchParams({ user_key: userKey });
+    if (refreshAi) query.set("refresh_ai", "true");
+    const res = await fetch(`${API_BASE}/api/portfolio?${query.toString()}`);
     if (!res.ok) throw new Error(`Portfolio HTTP ${res.status}`);
     return await res.json();
   },
@@ -71,13 +86,20 @@ export const MacroAPI = {
   async getSettings() {
     const res = await fetch(`${API_BASE}/api/settings`);
     if (!res.ok) throw new Error(`Settings HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    if (data && data.local_token) {
+      _localSettingsToken = data.local_token;
+    }
+    return data;
   },
 
   async updateSettings(payload) {
+    const token = await ensureLocalToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["X-Radar-Local-Token"] = token;
     const res = await fetch(`${API_BASE}/api/settings`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Update settings HTTP ${res.status}`);
@@ -85,9 +107,12 @@ export const MacroAPI = {
   },
 
   async testSettings(payload) {
+    const token = await ensureLocalToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["X-Radar-Local-Token"] = token;
     const res = await fetch(`${API_BASE}/api/settings/test`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Test credentials HTTP ${res.status}`);

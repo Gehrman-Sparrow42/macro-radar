@@ -1,7 +1,7 @@
 """Database engine, session management, and repository operations for radar_core."""
 
 import logging
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from contextlib import contextmanager
 from typing import Any
 from sqlalchemy import desc, func
@@ -109,10 +109,16 @@ def get_unprocessed_raw_data(
     session: Session,
     limit: int = 50,
     source_name: str | None = None,
+    source_names: Sequence[str] | None = None,
 ) -> list[RawData]:
-    """Retrieve queue of unprocessed raw documents."""
+    """Retrieve queue of unprocessed raw documents, optionally scoped to specific sources."""
     query = select(RawData).where(RawData.is_processed == False)  # noqa: E712
-    if source_name:
+    if source_names is not None:
+        scoped_sources = [s for s in source_names if s]
+        if not scoped_sources:
+            return []
+        query = query.where(RawData.source_name.in_(scoped_sources))
+    elif source_name:
         query = query.where(RawData.source_name == source_name)
     query = query.order_by(RawData.fetched_at).limit(limit)
     return list(session.exec(query).all())

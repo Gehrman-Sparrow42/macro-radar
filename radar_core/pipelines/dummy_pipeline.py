@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from radar_core.core.models import RawData
@@ -11,6 +12,18 @@ logger = logging.getLogger("radar_core.pipelines.concrete")
 
 # Locate prompts directory relative to this file
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+_PROMPT_PLACEHOLDER_RE = re.compile(r"\{(source|url|title|content)\}")
+
+
+def _render_prompt_template(template: str, raw_data: RawData, max_content_chars: int = 4000) -> str:
+    """Substitute prompt placeholders in a single pass so values cannot trigger nested replacements."""
+    values = {
+        "source": str(raw_data.source_name),
+        "url": str(raw_data.url),
+        "title": str(raw_data.title),
+        "content": str(raw_data.content_text[:max_content_chars]),
+    }
+    return _PROMPT_PLACEHOLDER_RE.sub(lambda match: values[match.group(1)], template)
 
 
 def _load_prompt_template(filename: str = "dummy_analysis.txt") -> str:
@@ -35,16 +48,12 @@ class DummyPipeline(BasePipeline):
         super().__init__(
             pipeline_name="dummy",
             min_content_length=40,
+            source_names=[s["source_name"] for s in self.get_default_sources()],
         )
         self.prompt_template = _load_prompt_template("dummy_analysis.txt")
 
     def build_prompt(self, raw_data: RawData) -> str:
-        prompt = self.prompt_template
-        prompt = prompt.replace("{source}", str(raw_data.source_name))
-        prompt = prompt.replace("{url}", str(raw_data.url))
-        prompt = prompt.replace("{title}", str(raw_data.title))
-        prompt = prompt.replace("{content}", str(raw_data.content_text[:4000]))
-        return prompt
+        return _render_prompt_template(self.prompt_template, raw_data)
 
     @classmethod
     def get_default_sources(cls) -> list[dict[str, Any]]:
@@ -76,6 +85,7 @@ class FinanceRadarPipeline(BasePipeline):
             pipeline_name="finance",
             include_keywords=["interest", "rate", "inflation", "central bank", "regulation", "treasury", "yield", "policy", "debt", "tariff", "liquidity"],
             min_content_length=50,
+            source_names=[s["source_name"] for s in self.get_default_sources()],
         )
         self.prompt_template = _load_prompt_template("dummy_analysis.txt")
 
@@ -84,12 +94,7 @@ class FinanceRadarPipeline(BasePipeline):
             "You are a Macro Risk & Portfolio Strategist. Evaluate the regulatory impact, "
             "monetary policy trajectory, and systemic portfolio risks of this item.\n\n"
         )
-        prompt = self.prompt_template
-        prompt = prompt.replace("{source}", str(raw_data.source_name))
-        prompt = prompt.replace("{url}", str(raw_data.url))
-        prompt = prompt.replace("{title}", str(raw_data.title))
-        prompt = prompt.replace("{content}", str(raw_data.content_text[:4000]))
-        return macro_instructions + prompt
+        return macro_instructions + _render_prompt_template(self.prompt_template, raw_data)
 
     @classmethod
     def get_default_sources(cls) -> list[dict[str, Any]]:
@@ -120,6 +125,7 @@ class MarketRadarPipeline(BasePipeline):
             pipeline_name="market",
             include_keywords=["saas", "launch", "tool", "ai", "product", "open source", "developer", "revenue", "micro", "startup", "growth"],
             min_content_length=50,
+            source_names=[s["source_name"] for s in self.get_default_sources()],
         )
         self.prompt_template = _load_prompt_template("dummy_analysis.txt")
 
@@ -128,12 +134,7 @@ class MarketRadarPipeline(BasePipeline):
             "You are a Micro-SaaS Venture Builder & Product Discovery Lead. "
             "Identify viable niche tools, unmet user needs, tech stacks, and monetization potential.\n\n"
         )
-        prompt = self.prompt_template
-        prompt = prompt.replace("{source}", str(raw_data.source_name))
-        prompt = prompt.replace("{url}", str(raw_data.url))
-        prompt = prompt.replace("{title}", str(raw_data.title))
-        prompt = prompt.replace("{content}", str(raw_data.content_text[:4000]))
-        return opportunity_instructions + prompt
+        return opportunity_instructions + _render_prompt_template(self.prompt_template, raw_data)
 
     @classmethod
     def get_default_sources(cls) -> list[dict[str, Any]]:

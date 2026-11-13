@@ -4,6 +4,7 @@ Açıklamaları hem sıradan bir yatırımcının anlayacağı sade dille hem de
 
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from radar_core.core.database import get_engine, init_db
@@ -14,11 +15,12 @@ from radar_core.pipelines.base_pipeline import BasePipeline
 import radar_macro.fetchers.turkish_fetcher  # noqa: F401
 from radar_macro.config.bist_sectors import map_macro_to_bist_tickers
 from radar_macro.config.settings import get_macro_settings
-from radar_macro.config.sources import get_active_macro_sources
+from radar_macro.config.sources import MACRO_SOURCES, get_active_macro_sources
 
 logger = logging.getLogger("radar_macro.pipeline")
 
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "macro_analysis.txt"
+_PROMPT_PLACEHOLDER_RE = re.compile(r"\{(source|url|title|content)\}")
 
 
 def _load_macro_prompt() -> str:
@@ -51,6 +53,7 @@ class MacroImpactPipeline(BasePipeline):
             gemini_model=settings.GEMINI_MODEL,
             openai_model_fast=settings.OPENAI_MODEL_FAST,
             openai_model_heavy=settings.OPENAI_MODEL_HEAVY,
+            openai_model_reasoning=settings.OPENAI_MODEL_REASONING,
             max_retries=settings.MAX_RETRIES,
             backoff_factor=settings.BACKOFF_FACTOR,
         )
@@ -80,16 +83,18 @@ class MacroImpactPipeline(BasePipeline):
             llm_engine=llm,
             include_keywords=bilingual_macro_keywords,
             min_content_length=settings.MIN_CONTENT_LENGTH,
+            source_names=[s["source_name"] for s in MACRO_SOURCES],
         )
         self.prompt_template = _load_macro_prompt()
 
     def build_prompt(self, raw_data: RawData) -> str:
-        prompt = self.prompt_template
-        prompt = prompt.replace("{source}", str(raw_data.source_name))
-        prompt = prompt.replace("{url}", str(raw_data.url))
-        prompt = prompt.replace("{title}", str(raw_data.title))
-        prompt = prompt.replace("{content}", str(raw_data.content_text[:5000]))
-        return prompt
+        values = {
+            "source": str(raw_data.source_name),
+            "url": str(raw_data.url),
+            "title": str(raw_data.title),
+            "content": str(raw_data.content_text[:5000]),
+        }
+        return _PROMPT_PLACEHOLDER_RE.sub(lambda match: values[match.group(1)], self.prompt_template)
 
     def get_sources(
         self,

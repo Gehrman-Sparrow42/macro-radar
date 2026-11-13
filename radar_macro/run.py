@@ -37,12 +37,6 @@ def run_cycle(
     logger.info("Triggering macro surveillance cycle across %d sources...", len(sources))
     stats = pipeline.run(source_configs=sources, batch_size=batch_size * 2)
 
-    # Drain backlog items
-    extra_stats = pipeline.process_queue(batch_size=batch_size * 2)
-    stats["processing"]["evaluated"] += extra_stats.get("evaluated", 0)
-    stats["processing"]["analyzed"] += extra_stats.get("analyzed", 0)
-    stats["processing"]["prefiltered_skipped"] += extra_stats.get("prefiltered_skipped", 0)
-
     ing = stats.get("ingestion", {})
     proc = stats.get("processing", {})
 
@@ -57,7 +51,7 @@ def run_cycle(
     )
 
 
-def start_macro_dashboard(port: int = 8501, open_browser: bool = True) -> None:
+def start_macro_dashboard(port: int = 8503, open_browser: bool = True) -> None:
     """Launch the High-Performance Modular Macro Intelligence Financial Terminal."""
     logger.info("Launching Modular Macro Terminal UI on http://127.0.0.1:%d...", port)
 
@@ -117,8 +111,8 @@ def main() -> None:
     parser.add_argument(
         "--port",
         type=int,
-        default=8501,
-        help="Port for the macro terminal dashboard (default: 8501)",
+        default=8503,
+        help="Port for the macro terminal dashboard (default: 8503)",
     )
     parser.add_argument(
         "--no-browser",

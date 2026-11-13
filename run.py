@@ -1,7 +1,7 @@
 """
 Yatırım Radarı - Root Entrypoint Script
 Usage:
-    python run.py --dashboard            # Starts the web terminal on http://127.0.0.1:8501
+    python run.py --dashboard            # Starts the web terminal on http://127.0.0.1:8503
     python run.py --run-once             # Runs single ingestion & analysis cycle
     python run.py --daemon               # Runs scheduled ingestion daemon
     python run.py --backfill             # Backfills 3-month macro memory

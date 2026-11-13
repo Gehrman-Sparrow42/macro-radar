@@ -225,8 +225,11 @@ def get_active_memory_context(months: int = 6) -> str:
     if not digests:
         return "Geçmiş dönem makro bellek kaydı bulunmamaktadır."
 
-    # Kronolojik olarak eskiden yeniye doğru sırala
-    digests = sorted(digests, key=lambda d: d.start_date)
+    # Kronolojik olarak eskiden yeniye doğru sırala (naive/aware farkına karşı güvenli)
+    digests = sorted(
+        digests,
+        key=lambda d: d.start_date if d.start_date.tzinfo else d.start_date.replace(tzinfo=timezone.utc),
+    )
 
     lines = ["--- KURUMSAL MAKRO BELLEK & GEÇMİŞ 6 AYLIK POLİTİKA MİRASI (L2 COMPACTION) ---"]
     for d in digests:

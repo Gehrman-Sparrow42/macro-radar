@@ -6,6 +6,37 @@ import { MacroAPI } from "./api.js";
 import { state, subscribe, updateFilters, notify } from "./state.js";
 
 // ---------------------------------------------------------------------------
+// XSS & URL Sanitization Helpers
+// ---------------------------------------------------------------------------
+export function escapeHtml(value) {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function sanitizeUrl(url) {
+  if (!url || typeof url !== "string") return "#";
+  const trimmed = url.trim();
+  if (!trimmed) return "#";
+  try {
+    const base = (typeof window !== "undefined" && window.location && window.location.origin)
+      ? window.location.origin
+      : "http://127.0.0.1:8503";
+    const parsed = new URL(trimmed, base);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.href;
+    }
+  } catch (e) {
+    return "#";
+  }
+  return "#";
+}
+
+// ---------------------------------------------------------------------------
 // Canlı Dünya Saatleri (İstanbul Ön Planda)
 // ---------------------------------------------------------------------------
 function initClocks() {
@@ -38,7 +69,7 @@ function showToast(msg, isError = false) {
   const toast = document.createElement("div");
   toast.className = "toast";
   if (isError) toast.style.borderColor = "#ef4444";
-  toast.innerHTML = `<span>${isError ? "⚠️" : "🏛️"}</span> <span>${msg}</span>`;
+  toast.innerHTML = `<span>${isError ? "⚠️" : "🏛️"}</span> <span>${escapeHtml(msg)}</span>`;
   container.appendChild(toast);
 
   setTimeout(() => {
@@ -110,7 +141,7 @@ function renderBulletins(data) {
             : (dirLower.includes("negatif") || dirLower.includes("aleyhine") || dirLower.includes("bear"))
             ? "asset-chip bearish"
             : "asset-chip neutral";
-          return `<span class="${chipClass}"><b>${asset}:</b> ${dirStr}</span>`;
+          return `<span class="${chipClass}"><b>${escapeHtml(asset)}:</b> ${escapeHtml(dirStr)}</span>`;
         })
         .join("");
 
@@ -123,11 +154,11 @@ function renderBulletins(data) {
       if (favoredList.length > 0 || pressuredList.length > 0) {
         const favChips = favoredList.slice(0, 3).map((f) => {
           const ticker = (typeof f === "object" && f !== null) ? (f.ticker || f.name || "BIST") : String(f);
-          return `<span class="ticker-chip favored">🟢 ${ticker}</span>`;
+          return `<span class="ticker-chip favored">🟢 ${escapeHtml(ticker)}</span>`;
         }).join("");
         const presChips = pressuredList.slice(0, 2).map((p) => {
           const ticker = (typeof p === "object" && p !== null) ? (p.ticker || p.name || "BIST") : String(p);
-          return `<span class="ticker-chip pressured">🔴 ${ticker}</span>`;
+          return `<span class="ticker-chip pressured">🔴 ${escapeHtml(ticker)}</span>`;
         }).join("");
         bistChipsHtml = `
           <div class="bist-tickers-row">
@@ -147,28 +178,34 @@ function renderBulletins(data) {
           })
         : "Yakın Zaman";
 
+      const safeId = escapeHtml(parseInt(item.id, 10) || 0);
+      const safeUrl = sanitizeUrl(item.url);
+      const sourceLinkHtml = safeUrl !== "#"
+        ? `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="font-size: 0.78rem;">🔗 Resmî Kaynak</a>`
+        : `<span style="font-size: 0.78rem; color: #64748b;">🔗 Kaynak Bağlantısı Yok</span>`;
+
       return `
-        <div class="bulletin-card" data-id="${item.id}">
+        <div class="bulletin-card" data-id="${safeId}">
           <div class="card-top">
             <div class="card-badges">
-              <span class="stance-badge ${stanceClass}">${item.policy_stance}</span>
-              <span class="${urgencyClass}">${String(item.regulatory_urgency || "İZLEME").replace(/_/g, " ")}</span>
-              <span class="jurisdiction-tag">${flag} ${item.jurisdiction || "Türkiye"}</span>
-              <span style="font-size: 0.76rem; color: #64748b; font-weight: 600; margin-left: 4px;">${item.source_name}</span>
+              <span class="stance-badge ${stanceClass}">${escapeHtml(item.policy_stance)}</span>
+              <span class="${urgencyClass}">${escapeHtml(String(item.regulatory_urgency || "İZLEME").replace(/_/g, " "))}</span>
+              <span class="jurisdiction-tag">${flag} ${escapeHtml(item.jurisdiction || "Türkiye")}</span>
+              <span style="font-size: 0.76rem; color: #64748b; font-weight: 600; margin-left: 4px;">${escapeHtml(item.source_name)}</span>
             </div>
-            <span style="font-size: 0.75rem; color: #64748b; font-family: var(--font-mono);">${dateStr}</span>
+            <span style="font-size: 0.75rem; color: #64748b; font-family: var(--font-mono);">${escapeHtml(dateStr)}</span>
           </div>
 
-          <div class="card-title">${item.title}</div>
+          <div class="card-title">${escapeHtml(item.title)}</div>
 
           ${item.rotation_summary ? `
             <div class="card-rotation-box">
               <div class="rotation-badge-row">
-                <span class="rotation-summary-tag">⚖️ ${item.rotation_summary}</span>
+                <span class="rotation-summary-tag">⚖️ ${escapeHtml(item.rotation_summary)}</span>
               </div>
               ${item.rotation_rationale ? `
                 <div class="rotation-rationale-snippet">
-                  <b>📌 Neye Göre Öneri Yapıldı?</b> ${item.rotation_rationale}
+                  <b>📌 Neye Göre Öneri Yapıldı?</b> ${escapeHtml(item.rotation_rationale)}
                 </div>
               ` : ""}
             </div>
@@ -176,12 +213,12 @@ function renderBulletins(data) {
 
           ${bistChipsHtml}
 
-          ${item.simple_summary ? `<div class="card-simple-preview">💡 <b>Özet:</b> ${item.simple_summary}</div>` : ""}
+          ${item.simple_summary ? `<div class="card-simple-preview">💡 <b>Özet:</b> ${escapeHtml(item.simple_summary)}</div>` : ""}
 
           <div class="card-meta">
-            <span>Önem Skoru: <b style="color: #60a5fa;">${item.relevance_score || 85}/100</b></span>
-            <span>Kategori: ${item.category}</span>
-            <a href="${item.url}" target="_blank" onclick="event.stopPropagation();" style="font-size: 0.78rem;">🔗 Resmî Kaynak</a>
+            <span>Önem Skoru: <b style="color: #60a5fa;">${escapeHtml(item.relevance_score || 85)}/100</b></span>
+            <span>Kategori: ${escapeHtml(item.category)}</span>
+            ${sourceLinkHtml}
           </div>
 
           ${assetChips ? `<div class="asset-impact-row">${assetChips}</div>` : ""}
@@ -209,7 +246,7 @@ function renderBulletins(data) {
     loadMoreDiv.style.cssText = "text-align: center; padding: 24px 0; margin-top: 10px;";
     loadMoreDiv.innerHTML = `
       <button id="btn-load-more" class="pill-btn" style="padding: 12px 28px; font-size: 0.9rem; font-weight: 700; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #93c5fd; cursor: pointer; border-radius: 8px; transition: all 0.2s;">
-        ⬇️ Daha Fazla Bülten Yükle (${data.items.length} / ${data.total} Gösteriliyor)
+        ⬇️ Daha Fazla Bülten Yükle (${escapeHtml(data.items.length)} / ${escapeHtml(data.total)} Gösteriliyor)
       </button>
     `;
     container.after(loadMoreDiv);
@@ -250,10 +287,10 @@ function openModal(item) {
   const stanceClass = getStanceClass(item.policy_stance);
 
   document.getElementById("modal-badges").innerHTML = `
-    <span class="stance-badge ${stanceClass}">${item.policy_stance}</span>
-    <span class="urgency-badge">${String(item.regulatory_urgency || "İZLEME").replace(/_/g, " ")}</span>
-    <span class="jurisdiction-tag">${flag} ${item.jurisdiction || "Türkiye"}</span>
-    <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">${item.source_name}</span>
+    <span class="stance-badge ${stanceClass}">${escapeHtml(item.policy_stance)}</span>
+    <span class="urgency-badge">${escapeHtml(String(item.regulatory_urgency || "İZLEME").replace(/_/g, " "))}</span>
+    <span class="jurisdiction-tag">${flag} ${escapeHtml(item.jurisdiction || "Türkiye")}</span>
+    <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">${escapeHtml(item.source_name)}</span>
   `;
 
   document.getElementById("modal-title").textContent = item.title;
@@ -316,15 +353,15 @@ function openModal(item) {
             <div class="bist-modal-card favored">
               <div class="bist-modal-card-header">
                 <div class="bist-modal-ticker-group">
-                  <span class="bist-modal-ticker">🟢 ${ticker}</span>
-                  ${name && name !== ticker ? `<span class="bist-modal-name">(${name})</span>` : ""}
+                  <span class="bist-modal-ticker">🟢 ${escapeHtml(ticker)}</span>
+                  ${name && name !== ticker ? `<span class="bist-modal-name">(${escapeHtml(name)})</span>` : ""}
                 </div>
                 <div class="guidance-badges">
-                  <span class="action-pill action-pill-buy">${action}</span>
-                  <span class="criteria-pill">${criteria}</span>
+                  <span class="action-pill action-pill-buy">${escapeHtml(action)}</span>
+                  <span class="criteria-pill">${escapeHtml(criteria)}</span>
                 </div>
               </div>
-              <div class="bist-modal-reason">${reason}</div>
+              <div class="bist-modal-reason">${escapeHtml(reason)}</div>
             </div>
           `;
         });
@@ -342,15 +379,15 @@ function openModal(item) {
             <div class="bist-modal-card pressured">
               <div class="bist-modal-card-header">
                 <div class="bist-modal-ticker-group">
-                  <span class="bist-modal-ticker">🔴 ${ticker}</span>
-                  ${name && name !== ticker ? `<span class="bist-modal-name">(${name})</span>` : ""}
+                  <span class="bist-modal-ticker">🔴 ${escapeHtml(ticker)}</span>
+                  ${name && name !== ticker ? `<span class="bist-modal-name">(${escapeHtml(name)})</span>` : ""}
                 </div>
                 <div class="guidance-badges">
-                  <span class="action-pill action-pill-sell">${action}</span>
-                  <span class="criteria-pill">${criteria}</span>
+                  <span class="action-pill action-pill-sell">${escapeHtml(action)}</span>
+                  <span class="criteria-pill">${escapeHtml(criteria)}</span>
                 </div>
               </div>
-              <div class="bist-modal-reason">${reason}</div>
+              <div class="bist-modal-reason">${escapeHtml(reason)}</div>
             </div>
           `;
         });
@@ -362,7 +399,7 @@ function openModal(item) {
   const actionsContainer = document.getElementById("modal-actions");
   if (item.action_items && item.action_items.length > 0) {
     actionsContainer.innerHTML = item.action_items
-      .map((act, i) => `<div class="action-box"><b>${i + 1}.</b> ${act}</div>`)
+      .map((act, i) => `<div class="action-box"><b>${i + 1}.</b> ${escapeHtml(act)}</div>`)
       .join("");
   } else {
     actionsContainer.innerHTML = `<div style="color: #64748b; font-size: 0.85rem;">Standart portföy takibi tavsiye edilmektedir.</div>`;
@@ -380,8 +417,8 @@ function openModal(item) {
           ? "#f87171"
           : "#94a3b8";
         return `<div style="display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(148,163,184,0.08); font-size: 0.86rem;">
-          <span style="color: #cbd5e1; font-weight: 600;">${asset}</span>
-          <span style="color: ${color}; font-weight: 700;">${dirStr}</span>
+          <span style="color: #cbd5e1; font-weight: 600;">${escapeHtml(asset)}</span>
+          <span style="color: ${color}; font-weight: 700;">${escapeHtml(dirStr)}</span>
         </div>`;
       })
       .join("");
@@ -390,7 +427,9 @@ function openModal(item) {
   }
 
   document.getElementById("modal-raw-text").textContent = item.content_text || "";
-  document.getElementById("modal-link").href = item.url || "#";
+  const modalLink = document.getElementById("modal-link");
+  modalLink.href = sanitizeUrl(item.url);
+  modalLink.rel = "noopener noreferrer";
   document.getElementById("modal-hash").textContent = item.content_hash ? `SHA-256: ${item.content_hash}` : "";
 
   overlay.classList.add("active");
@@ -443,14 +482,14 @@ function formatAgentDeskContent(rawText) {
     // Check if paragraph starts with a number like "1)" or "1."
     const match = p.match(/^(\d+[\)\.])\s*(.*)/s);
     if (match) {
-      const num = match[1];
+      const num = escapeHtml(match[1]);
       const body = match[2];
       // Highlight colon titles if present e.g. "SEDDK / Emeklilik Fonu Aktarım Kanalı:"
       const colonIdx = body.indexOf(":");
-      let formattedBody = body;
+      let formattedBody = escapeHtml(body);
       if (colonIdx > 0 && colonIdx < 60) {
-        const titlePart = body.substring(0, colonIdx);
-        const restPart = body.substring(colonIdx + 1);
+        const titlePart = escapeHtml(body.substring(0, colonIdx));
+        const restPart = escapeHtml(body.substring(colonIdx + 1));
         formattedBody = `<b class="agent-memo-item-title">${titlePart}:</b>${restPart}`;
       }
       html += `
@@ -460,11 +499,11 @@ function formatAgentDeskContent(rawText) {
         </div>
       `;
     } else {
-      html += `<p class="agent-memo-p">${p}</p>`;
+      html += `<p class="agent-memo-p">${escapeHtml(p)}</p>`;
     }
   });
 
-  return html || text;
+  return html || escapeHtml(text);
 }
 
 async function loadAgentMemo() {
@@ -518,8 +557,8 @@ async function loadAgentMemo() {
         const reason = String(f.reason || "Pozitif bilanço ve makro kalkan.").replace(/itibar\?yla/gi, "itibarıyla");
         html += `
           <div class="agent-ticker-tag fav">
-            <div class="agent-ticker-symbol">🟢 ${ticker} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${name})</span>` : ""}</div>
-            <div class="agent-ticker-reason">${reason}</div>
+            <div class="agent-ticker-symbol">🟢 ${escapeHtml(ticker)} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${escapeHtml(name)})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${escapeHtml(reason)}</div>
           </div>
         `;
       });
@@ -529,8 +568,8 @@ async function loadAgentMemo() {
         const reason = String(p.reason || "Yüksek finansman maliyeti veya marj baskısı.").replace(/itibar\?yla/gi, "itibarıyla");
         html += `
           <div class="agent-ticker-tag prs">
-            <div class="agent-ticker-symbol">🔴 ${ticker} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${name})</span>` : ""}</div>
-            <div class="agent-ticker-reason">${reason}</div>
+            <div class="agent-ticker-symbol">🔴 ${escapeHtml(ticker)} ${name ? `<span style="font-weight: normal; font-size: 0.8rem; color: #94a3b8;">(${escapeHtml(name)})</span>` : ""}</div>
+            <div class="agent-ticker-reason">${escapeHtml(reason)}</div>
           </div>
         `;
       });
@@ -572,13 +611,13 @@ async function loadMemoryDigests() {
         return `
           <div class="memory-card">
             <div class="memory-card-header">
-              <span class="memory-card-label">📅 ${d.period_label || d.period_key}</span>
-              <span class="memory-stance-badge ${badgeClass}">${stance} (%${hwkPct} Sıkılaşma)</span>
+              <span class="memory-card-label">📅 ${escapeHtml(d.period_label || d.period_key)}</span>
+              <span class="memory-stance-badge ${badgeClass}">${escapeHtml(stance)} (%${escapeHtml(hwkPct)} Sıkılaşma)</span>
             </div>
-            <div class="memory-narrative">${d.regime_narrative}</div>
+            <div class="memory-narrative">${escapeHtml(d.regime_narrative)}</div>
             <div class="memory-bist-chips">
-              ${favs.map((f) => `<span class="memory-chip-fav">🟢 ${f}</span>`).join("")}
-              ${prss.map((p) => `<span class="memory-chip-prs">🔴 ${p}</span>`).join("")}
+              ${favs.map((f) => `<span class="memory-chip-fav">🟢 ${escapeHtml(f)}</span>`).join("")}
+              ${prss.map((p) => `<span class="memory-chip-prs">🔴 ${escapeHtml(p)}</span>`).join("")}
             </div>
           </div>
         `;
@@ -636,12 +675,12 @@ function renderPortfolio(copilot) {
           const borderColor = isRealloc ? "rgba(245, 158, 11, 0.6)" : "rgba(16, 185, 129, 0.5)";
           return `
             <div class="tactical-card" style="border-color: ${borderColor};">
-              <div class="tactical-headline">${act.headline}</div>
-              <div class="tactical-instruction">${act.instruction}</div>
+              <div class="tactical-headline">${escapeHtml(act.headline)}</div>
+              <div class="tactical-instruction">${escapeHtml(act.instruction)}</div>
               ${act.rationale ? `
                 <div class="tactical-rationale-box">
                   <span class="tactical-rationale-title">🔍 Neye Göre Bu Öneri Yapıldı? (Yasal & Makro Dayanak)</span>
-                  <p class="tactical-rationale-text">${act.rationale}</p>
+                  <p class="tactical-rationale-text">${escapeHtml(act.rationale)}</p>
                 </div>
               ` : ""}
             </div>
@@ -692,18 +731,18 @@ function renderPortfolio(copilot) {
         return `
           <div class="comparison-row">
             <div class="comp-header">
-              <span class="comp-title">${label}</span>
+              <span class="comp-title">${escapeHtml(label)}</span>
               <div>
-                <span style="font-size: 0.76rem; color: #94a3b8; margin-right: 8px;">Mevcut: <b style="color: #60a5fa;">%${cur}</b> | Hedef: <b style="color: #34d399;">%${tgt}</b></span>
+                <span style="font-size: 0.76rem; color: #94a3b8; margin-right: 8px;">Mevcut: <b style="color: #60a5fa;">%${escapeHtml(cur)}</b> | Hedef: <b style="color: #34d399;">%${escapeHtml(tgt)}</b></span>
                 ${diffBadge}
               </div>
             </div>
             <div class="bar-dual">
-              <div class="bar-track" title="Mevcut Ağırlığınız: %${cur}">
-                <div class="bar-fill current" style="width: ${Math.min(cur, 100)}%;"></div>
+              <div class="bar-track" title="Mevcut Ağırlığınız: %${escapeHtml(cur)}">
+                <div class="bar-fill current" style="width: ${Math.min(Number(cur) || 0, 100)}%;"></div>
               </div>
-              <div class="bar-track" title="Makro Önerilen Hedef: %${tgt}">
-                <div class="bar-fill target" style="width: ${Math.min(tgt, 100)}%;"></div>
+              <div class="bar-track" title="Makro Önerilen Hedef: %${escapeHtml(tgt)}">
+                <div class="bar-fill target" style="width: ${Math.min(Number(tgt) || 0, 100)}%;"></div>
               </div>
             </div>
           </div>
@@ -729,13 +768,13 @@ function renderPortfolio(copilot) {
         (item) => `
         <div class="guidance-item" style="border-left: 3px solid #10b981;">
           <div class="guidance-header-row">
-            <div class="guidance-ticker" style="color: #34d399;">🟢 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
+            <div class="guidance-ticker" style="color: #34d399;">🟢 ${escapeHtml(item.ticker)} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${escapeHtml(item.name)})</span></div>
             <div class="guidance-badges">
-              <span class="action-pill action-pill-buy">${item.action || "GİR / AĞIRLIK ARTIR"}</span>
-              <span class="criteria-pill">${item.criteria || "Bilanço Kalkanı"}</span>
+              <span class="action-pill action-pill-buy">${escapeHtml(item.action || "GİR / AĞIRLIK ARTIR")}</span>
+              <span class="criteria-pill">${escapeHtml(item.criteria || "Bilanço Kalkanı")}</span>
             </div>
           </div>
-          <div class="guidance-reason">${item.reason}</div>
+          <div class="guidance-reason">${escapeHtml(item.reason)}</div>
         </div>
       `
       )
@@ -749,13 +788,13 @@ function renderPortfolio(copilot) {
         (item) => `
         <div class="guidance-item" style="border-left: 3px solid #ef4444;">
           <div class="guidance-header-row">
-            <div class="guidance-ticker" style="color: #f87171;">🔴 ${item.ticker} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${item.name})</span></div>
+            <div class="guidance-ticker" style="color: #f87171;">🔴 ${escapeHtml(item.ticker)} <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">(${escapeHtml(item.name)})</span></div>
             <div class="guidance-badges">
-              <span class="action-pill action-pill-sell">${item.action || "ÇIK / HAFİFLET"}</span>
-              <span class="criteria-pill">${item.criteria || "Yüksek Faiz Baskısı"}</span>
+              <span class="action-pill action-pill-sell">${escapeHtml(item.action || "ÇIK / HAFİFLET")}</span>
+              <span class="criteria-pill">${escapeHtml(item.criteria || "Yüksek Faiz Baskısı")}</span>
             </div>
           </div>
-          <div class="guidance-reason">${item.reason}</div>
+          <div class="guidance-reason">${escapeHtml(item.reason)}</div>
         </div>
       `
       )

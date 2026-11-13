@@ -39,16 +39,17 @@ class LLMEngine:
     ):
         settings = get_settings()
 
-        self.gemini_api_key = gemini_api_key or getattr(settings, "GEMINI_API_KEY", "")
-        self.openai_api_key = openai_api_key or getattr(settings, "OPENAI_API_KEY", "")
+        self.gemini_api_key = gemini_api_key if gemini_api_key is not None else getattr(settings, "GEMINI_API_KEY", "")
+        self.openai_api_key = openai_api_key if openai_api_key is not None else getattr(settings, "OPENAI_API_KEY", "")
 
         self.gemini_model = gemini_model or getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
         self.openai_model_fast = openai_model_fast or getattr(settings, "OPENAI_MODEL_FAST", "gpt-4o-mini")
         self.openai_model_heavy = openai_model_heavy or getattr(settings, "OPENAI_MODEL_HEAVY", "gpt-4o")
         self.openai_model_reasoning = openai_model_reasoning or getattr(settings, "OPENAI_MODEL_REASONING", "gpt-4o")
 
-        self.max_retries = max_retries or getattr(settings, "MAX_RETRIES", 3)
-        self.backoff_factor = backoff_factor or getattr(settings, "BACKOFF_FACTOR", 1.5)
+        self.max_retries = max_retries if max_retries is not None else getattr(settings, "MAX_RETRIES", 3)
+        self.backoff_factor = backoff_factor if backoff_factor is not None else getattr(settings, "BACKOFF_FACTOR", 1.5)
+        self.request_timeout = float(getattr(settings, "REQUEST_TIMEOUT", 30))
 
         self._gemini_client = None
         self._openai_client = None
@@ -62,7 +63,7 @@ class LLMEngine:
                 from google.genai import types
                 self._gemini_client = genai.Client(
                     api_key=self.gemini_api_key,
-                    http_options=types.HttpOptions(timeout=12000),
+                    http_options=types.HttpOptions(timeout=int(self.request_timeout * 1000)),
                 )
                 logger.info("Google GenAI Client initialized (model: %s).", self.gemini_model)
             except Exception as exc:
@@ -71,7 +72,7 @@ class LLMEngine:
         if self.openai_api_key:
             try:
                 from openai import OpenAI
-                self._openai_client = OpenAI(api_key=self.openai_api_key, timeout=18.0)
+                self._openai_client = OpenAI(api_key=self.openai_api_key, timeout=self.request_timeout)
                 logger.info("OpenAI Client initialized (models: %s / %s).", self.openai_model_fast, self.openai_model_heavy)
             except Exception as exc:
                 logger.warning("Failed initializing OpenAI Client: %s", exc)
@@ -147,6 +148,7 @@ class LLMEngine:
             provider_order = [("gemini", self.gemini_model), ("openai", self.openai_model_fast)]
 
         last_error = None
+        attempts = max(1, int(self.max_retries))
 
         for provider, model_name in provider_order:
             if provider == "gemini" and not self._gemini_client:
@@ -154,21 +156,45 @@ class LLMEngine:
             if provider == "openai" and not self._openai_client:
                 continue
 
-            try:
-                logger.info("Executing [%s] via %s (%s)...", task_type, provider.upper(), model_name)
-                if provider == "gemini":
-                    return self._call_gemini(prompt, response_schema, system_instruction, temperature, model_name)
-                elif provider == "openai":
-                    return self._call_openai(prompt, response_schema, system_instruction, temperature, model_name)
-            except Exception as exc:
-                logger.warning(
-                    "Provider %s (%s) failed for task '%s': %s. Failing over to next provider...",
-                    provider,
-                    model_name,
-                    task_type,
-                    exc,
-                )
-                last_error = exc
+            for attempt in range(attempts):
+                try:
+                    logger.info(
+                        "Executing [%s] via %s (%s) [attempt %d/%d]...",
+                        task_type,
+                        provider.upper(),
+                        model_name,
+                        attempt + 1,
+                        attempts,
+                    )
+                    if provider == "gemini":
+                        return self._call_gemini(prompt, response_schema, system_instruction, temperature, model_name)
+                    elif provider == "openai":
+                        return self._call_openai(prompt, response_schema, system_instruction, temperature, model_name)
+                except Exception as exc:
+                    last_error = exc
+                    if attempt < attempts - 1:
+                        delay = float(self.backoff_factor) * (2 ** attempt)
+                        logger.warning(
+                            "Provider %s (%s) attempt %d/%d failed for task '%s': %s. Retrying in %.2fs...",
+                            provider,
+                            model_name,
+                            attempt + 1,
+                            attempts,
+                            task_type,
+                            exc,
+                            delay,
+                        )
+                        if delay > 0:
+                            time.sleep(delay)
+                    else:
+                        logger.warning(
+                            "Provider %s (%s) failed after %d attempt(s) for task '%s': %s. Failing over to next provider...",
+                            provider,
+                            model_name,
+                            attempts,
+                            task_type,
+                            exc,
+                        )
 
         raise RuntimeError(f"All LLM providers failed for task '{task_type}'. Last error: {last_error}")
 
@@ -261,15 +287,13 @@ class LLMEngine:
         }
 
         if is_reasoning_model:
-            call_kwargs["max_completion_tokens"] = 1500
+            call_kwargs["max_completion_tokens"] = 4000
             # Sınırlı muhakeme eforu: reasoning_effort='low' gizli düşünce token tüketimini minimuma indirir
-            try:
+            if not any(x in model_name.lower() for x in ["o1-mini", "o1-preview"]):
                 call_kwargs["reasoning_effort"] = "low"
-            except Exception:
-                pass
         else:
             call_kwargs["temperature"] = temperature
-            call_kwargs["max_tokens"] = 1000
+            call_kwargs["max_tokens"] = 2500
 
         response = self._openai_client.chat.completions.create(**call_kwargs)
 

@@ -3,8 +3,10 @@ Makroekonomik istihbarat akışına göre 'Şundan çık, şuna geç' varlık da
 """
 
 from datetime import datetime, timezone
+import hashlib
 import json
 import logging
+import threading
 from typing import Any
 
 from sqlmodel import Column, DateTime, Field, SQLModel, Text
@@ -14,6 +16,15 @@ from radar_macro.config.bist_sectors import BIST_COMPANIES
 from radar_macro.config.settings import get_macro_settings
 
 logger = logging.getLogger("radar_macro.portfolio")
+
+_AI_REVIEW_CACHE_LOCK = threading.Lock()
+_AI_REVIEW_CACHE: dict[tuple[Any, ...], tuple[str, str]] = {}
+
+
+def clear_portfolio_ai_cache() -> None:
+    """Clear cached AI portfolio reviews (useful in tests)."""
+    with _AI_REVIEW_CACHE_LOCK:
+        _AI_REVIEW_CACHE.clear()
 
 # ---------------------------------------------------------------------------
 # Default Weights & Asset Classes
@@ -144,10 +155,13 @@ def _generate_action_rationale(from_asset: str, to_asset: str, regime_code: str)
 def compute_tactical_copilot(
     current_weights: dict[str, float] | None = None,
     limit: int = 40,
+    refresh_ai: bool = False,
 ) -> dict[str, Any]:
     """
     Son makroekonomik gelişmeleri (TCMB, Resmî Gazete, Fed, vb.) analiz ederek
     kullanıcının mevcut portföyüne özel 'Şundan Çık ➔ Şuna Geç' yönlendirmesi üretir.
+    `refresh_ai=False` (varsayılan) iken yalnızca önbellekteki AI yorumunu kullanır ve
+    GET /api/portfolio isteklerini senkron LLM çağrılarıyla bloke etmez.
     """
     if not current_weights:
         current_weights = get_user_portfolio_weights()
@@ -346,37 +360,56 @@ def compute_tactical_copilot(
             "Dengeli varlık dağılımı korunmalıdır."
         )
 
-    # Canlı OpenAI GPT-4o Destekli Taktiksel Portföy Denetimi (6 Aylık Makro Bellek Entegrasyonu)
+    # Canlı OpenAI GPT-4o Destekli Taktiksel Portföy Denetimi (Önbellekli / İsteğe Bağlı Yenileme)
     memory_context = ""
+    ai_review_cached = False
     try:
-        from radar_core.core.llm_engine import LLMEngine
         from radar_macro.memory_engine import get_active_memory_context
-        engine = LLMEngine()
         memory_context = get_active_memory_context(months=6)
-
-        if getattr(engine, "openai_api_key", None) or getattr(engine, "gemini_api_key", None):
-            top_headlines = [a.summary_title for a, _ in recent_analyses[:5]]
-            prompt_review = (
-                f"Kullanıcı Portföyü: {current_weights}\n"
-                f"Taktiksel Hedef Portföy: {target_weights}\n"
-                f"Aktif Makro Rejim: {regime}\n\n"
-                f"{memory_context}\n\n"
-                f"Son Güncel Kararlar ve Bültenler:\n" + "\n".join(f"- {h}" for h in top_headlines) + "\n\n"
-                f"GÖREV: 100.000 TL+ yatırım büyüklüğü için geçmiş 6 aylık politika mirasını ve son bültenleri sentezleyerek:\n"
-                f"1. Basit özet (halk diliyle ne yapmalı)\n"
-                f"2. Teknik analiz (WACC, risksiz faiz, borsa çarpanları, kur dengesi ve 6 aylık kümülatif aktarım mekanizması)\n"
-                f"StructuredAnalysisOutput formatında oluştur."
-            )
-            ai_res = engine.analyze_structured(prompt=prompt_review, task_type="portfolio_copilot")
-            m_ai = ai_res.metrics or {}
-            ai_simple = m_ai.get("simple_summary") or ai_res.summary_title
-            ai_tech = m_ai.get("technical_analysis") or ai_res.detailed_reasoning
-            if ai_simple and len(ai_simple) > 20:
-                simple_rationale = ai_simple
-            if ai_tech and len(ai_tech) > 30:
-                technical_rationale = ai_tech
     except Exception as exc:
-        logger.debug("Live AI portfolio review skipped: %s", exc)
+        logger.debug("Memory context lookup skipped: %s", exc)
+
+    latest_analysis_id = recent_analyses[0][0].id if recent_analyses else None
+    memory_sig = hashlib.sha256(memory_context.encode("utf-8")).hexdigest()[:16]
+    weights_sig = tuple(sorted((k, round(float(v), 2)) for k, v in current_weights.items()))
+    cache_key = (latest_analysis_id, memory_sig, regime_code, weights_sig)
+
+    with _AI_REVIEW_CACHE_LOCK:
+        cached_review = _AI_REVIEW_CACHE.get(cache_key)
+
+    if cached_review and not refresh_ai:
+        simple_rationale, technical_rationale = cached_review
+        ai_review_cached = True
+    elif refresh_ai:
+        try:
+            from radar_core.core.llm_engine import LLMEngine
+            engine = LLMEngine()
+
+            if getattr(engine, "openai_api_key", None) or getattr(engine, "gemini_api_key", None):
+                top_headlines = [a.summary_title for a, _ in recent_analyses[:5]]
+                prompt_review = (
+                    f"Kullanıcı Portföyü: {current_weights}\n"
+                    f"Taktiksel Hedef Portföy: {target_weights}\n"
+                    f"Aktif Makro Rejim: {regime}\n\n"
+                    f"{memory_context}\n\n"
+                    f"Son Güncel Kararlar ve Bültenler:\n" + "\n".join(f"- {h}" for h in top_headlines) + "\n\n"
+                    f"GÖREV: 100.000 TL+ yatırım büyüklüğü için geçmiş 6 aylık politika mirasını ve son bültenleri sentezleyerek:\n"
+                    f"1. Basit özet (halk diliyle ne yapmalı)\n"
+                    f"2. Teknik analiz (WACC, risksiz faiz, borsa çarpanları, kur dengesi ve 6 aylık kümülatif aktarım mekanizması)\n"
+                    f"StructuredAnalysisOutput formatında oluştur."
+                )
+                ai_res = engine.analyze_structured(prompt=prompt_review, task_type="portfolio_copilot")
+                m_ai = ai_res.metrics or {}
+                ai_simple = m_ai.get("simple_summary") or ai_res.summary_title
+                ai_tech = m_ai.get("technical_analysis") or ai_res.detailed_reasoning
+                if ai_simple and len(ai_simple) > 20:
+                    simple_rationale = ai_simple
+                if ai_tech and len(ai_tech) > 30:
+                    technical_rationale = ai_tech
+                with _AI_REVIEW_CACHE_LOCK:
+                    _AI_REVIEW_CACHE[cache_key] = (simple_rationale, technical_rationale)
+        except Exception as exc:
+            logger.debug("Live AI portfolio review skipped: %s", exc)
 
     # 6. BIST Şirket Bazlı Seçici Rehberlik (Bu Makro Rejimde Hangileri Alınmalı / Hangilerinden Kaçınılmalı)
     if regime_code == "TIGHT_MONEY_HIGH_TL_YIELD":
@@ -438,4 +471,5 @@ def compute_tactical_copilot(
         },
         "bist_guidance": bist_guidance,
         "macro_memory_summary": memory_context,
+        "ai_review_cached": ai_review_cached,
     }

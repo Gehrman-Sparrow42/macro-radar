@@ -5,7 +5,7 @@ echo ===================================================
 echo   YATIRIM RADARI - MAKRO VE PORTFOY TERMINALI
 echo ===================================================
 echo.
-echo Terminal baslatiliyor: http://127.0.0.1:8501
+echo Terminal baslatiliyor: http://127.0.0.1:8503
 echo.
-python run.py --dashboard --port 8501
+python run.py --dashboard --port 8503
 pause

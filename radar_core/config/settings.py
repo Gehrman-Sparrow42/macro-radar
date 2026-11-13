@@ -1,17 +1,21 @@
 """Settings and environment management for radar_core using Pydantic Settings."""
 
 import logging
+from pathlib import Path
 import sys
 from functools import lru_cache
 from typing import Literal
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_SQLITE_URL = f"sqlite:///{(PROJECT_ROOT / 'radar.db').as_posix()}"
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables and .env file."""
 
     model_config = SettingsConfigDict(
-        env_file=(".env", "../.env"),
+        env_file=(str(PROJECT_ROOT / ".env"), str(PROJECT_ROOT.parent / ".env"), ".env", "../.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -28,7 +32,7 @@ class Settings(BaseSettings):
     LLM_ROUTING_STRATEGY: str = "smart_hybrid"
 
     # Database settings
-    DATABASE_URL: str = "sqlite:///./radar.db"
+    DATABASE_URL: str = DEFAULT_SQLITE_URL
 
     # Operational settings
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

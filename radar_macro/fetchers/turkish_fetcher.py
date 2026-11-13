@@ -12,17 +12,16 @@ Deep Extraction Strategy
   follows the linked Resmî Gazete .htm pages to extract the regulation body text.
 """
 
-from datetime import datetime, timezone
 import logging
+import re
+from datetime import datetime, timezone
 from typing import Any
-import urllib3
-from bs4 import BeautifulSoup
+
 import requests
+from bs4 import BeautifulSoup
 
 from radar_core.core.fetchers.base import BaseFetcher, register_fetcher
 from radar_core.core.models import RawItem
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger("radar_macro.fetchers.turkish")
 
@@ -40,7 +39,6 @@ DEFAULT_HEADERS = {
 class TurkishOfficialFetcher(BaseFetcher):
     """
     Ingestion strategy specialized for Turkish governmental gazettes and financial regulators.
-    Handles non-standard Windows SSL certificate authority issues natively.
     """
 
     def fetch(self, source_config: dict[str, Any]) -> list[RawItem]:
@@ -68,9 +66,9 @@ class TurkishOfficialFetcher(BaseFetcher):
     # ------------------------------------------------------------------
 
     def _get(self, url: str, timeout: int = 15):
-        """GET with shared headers and SSL bypass; returns None on failure."""
+        """GET with shared headers and strict TLS verification; returns None on failure."""
         try:
-            resp = requests.get(url, headers=DEFAULT_HEADERS, verify=False, timeout=timeout)
+            resp = requests.get(url, headers=DEFAULT_HEADERS, verify=True, timeout=timeout)
             resp.encoding = "utf-8"
             return resp if resp.status_code == 200 else None
         except Exception as exc:
@@ -293,7 +291,8 @@ class TurkishOfficialFetcher(BaseFetcher):
 
     def _fetch_spk(self, source_name: str, limit: int) -> list[RawItem]:
         """Fetch real SPK (Capital Markets Board of Turkey) PDF bulletins and extract decision texts."""
-        bulletin_page_url = "https://spk.gov.tr/spk-bultenleri/2026-yili-spk-bultenleri"
+        current_year = datetime.now(timezone.utc).year
+        bulletin_page_url = f"https://spk.gov.tr/spk-bultenleri/{current_year}-yili-spk-bultenleri"
         items: list[RawItem] = []
 
         resp = self._get(bulletin_page_url, timeout=12)
@@ -307,7 +306,7 @@ class TurkishOfficialFetcher(BaseFetcher):
         for a in soup.find_all("a", href=True):
             href = a["href"].strip()
             text = a.get_text(strip=True)
-            if ".pdf" in href.lower() and ("2026-" in href or "bulten" in href.lower() or "bülten" in text.lower()):
+            if ".pdf" in href.lower() and (re.search(r"20\d{2}-", href) or "bulten" in href.lower() or "bülten" in text.lower()):
                 full_url = href if href.startswith("http") else f"https://spk.gov.tr{href}"
                 clean_title = text if len(text) > 10 else f"SPK Bülteni ({full_url.split('/')[-1]})"
                 bulletin_entries.append((clean_title, full_url))

@@ -21,6 +21,12 @@ from radar_core.core.database import (
     get_session,
     init_db,
 )
+from radar_core.dashboard.helpers import (
+    filter_results_by_sources,
+    get_llm_status_caption,
+    render_action_pill_html,
+    render_intel_card_html,
+)
 from radar_core.pipelines.dummy_pipeline import get_pipeline
 
 # Configure Streamlit page
@@ -223,10 +229,7 @@ st.sidebar.subheader("📊 System Stats")
 st.sidebar.metric("Total Ingested", metrics["total_raw"])
 st.sidebar.metric("Queue Pending", metrics["total_pending"])
 st.sidebar.caption(f"DB: `{settings.DATABASE_URL}`")
-if settings.GEMINI_API_KEY:
-    st.sidebar.caption(f"LLM: `{settings.DEFAULT_MODEL}` (Active)")
-else:
-    st.sidebar.caption("LLM: Heuristic Mode (No API Key set)")
+st.sidebar.caption(get_llm_status_caption(settings))
 
 
 # ---------------------------------------------------------------------------
@@ -297,8 +300,7 @@ with get_session() as session:
     )
 
 # Filter by selected sources
-if source_filter:
-    results = [res for res in results if res[1].source_name in source_filter]
+results = filter_results_by_sources(results, available_sources, source_filter)
 
 # Display Feed
 if not results:
@@ -310,26 +312,10 @@ else:
     st.subheader(f"Recent Intelligence Findings ({len(results)} items)")
 
     for analysis, raw in results:
-        sev_class = f"badge-{analysis.severity.lower()}"
-        created_str = analysis.created_at.strftime("%Y-%m-%d %H:%M UTC")
-
         with st.container():
             # Card Header
             st.markdown(
-                f"""
-                <div class="intel-card">
-                    <div>
-                        <span class="badge {sev_class}">{analysis.severity}</span>
-                        <span class="badge badge-pipeline">{analysis.pipeline_type.upper()}</span>
-                        <span style="color: #94a3b8; font-size: 0.85rem; font-weight: 500;">{raw.source_name}</span>
-                    </div>
-                    <div class="intel-title">{analysis.summary_title}</div>
-                    <div class="intel-meta">
-                        <span>🕒 {created_str}</span>
-                        <span>🔗 <a href="{raw.url}" target="_blank" style="color: #818cf8; text-decoration: none;">Source Link</a></span>
-                    </div>
-                </div>
-                """,
+                render_intel_card_html(analysis, raw),
                 unsafe_allow_html=True,
             )
 
@@ -345,7 +331,7 @@ else:
                         st.markdown("#### ⚡ Recommended Action Items")
                         for idx, action in enumerate(analysis.action_items, 1):
                             st.markdown(
-                                f"""<div class="action-pill"><b>{idx}.</b> {action}</div>""",
+                                render_action_pill_html(idx, action),
                                 unsafe_allow_html=True,
                             )
 

@@ -1,12 +1,17 @@
 """FastAPI Application Server for Radar Macro Intelligence Terminal."""
 
+import hmac
 import logging
+import os
 from pathlib import Path
+import re
+import secrets
 import sys
 import threading
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import BackgroundTasks, FastAPI, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -53,17 +58,27 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://127.0.0.1:8503",
+        "http://localhost:8503",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Radar-Local-Token"],
 )
 
 WEB_DIR = APP_ROOT / "web"
 WEB_DIR.mkdir(parents=True, exist_ok=True)
 
+_LOCALHOST_CLIENT_HOSTS = frozenset({"127.0.0.1", "::1", "localhost", "testclient"})
+_LOOPBACK_ORIGIN_RE = re.compile(r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$", re.IGNORECASE)
+_LOOPBACK_HOST_HEADER_RE = re.compile(r"^(localhost|127\.0\.0\.1|\[::1\]|testserver)(:\d+)?$", re.IGNORECASE)
+_LOCAL_SETTINGS_TOKEN = secrets.token_urlsafe(24)
+
 # Ingestion state tracking
 ingest_lock = threading.Lock()
+ingest_state_lock = threading.Lock()
 ingest_status: dict[str, Any] = {
     "is_running": False,
     "last_run": None,
@@ -81,6 +96,7 @@ class IngestRequest(BaseModel):
 class PortfolioUpdateRequest(BaseModel):
     weights: dict[str, float]
     user_key: str = "default_user"
+    refresh_ai: bool = False
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -104,6 +120,57 @@ def _mask_key(key: str | None) -> str:
     if len(key) <= 10:
         return "****"
     return f"{key[:7]}...{key[-4:]}"
+
+
+def _is_loopback_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url.strip())
+    except ValueError:
+        return False
+    return (
+        parsed.scheme.lower() in {"http", "https"}
+        and (parsed.hostname or "").lower() in {"localhost", "127.0.0.1"}
+    )
+
+
+def _require_local_settings_access(request: Request, require_mutation_proof: bool = True) -> None:
+    """Enforce loopback-only access and local token or explicit loopback origin for settings mutations."""
+    if request.headers.get("x-forwarded-for") or request.headers.get("forwarded"):
+        raise HTTPException(status_code=403, detail="Proxied settings access is not permitted.")
+
+    host_hdr = (request.headers.get("host") or "").strip()
+    if host_hdr and not _LOOPBACK_HOST_HEADER_RE.match(host_hdr):
+        raise HTTPException(status_code=403, detail="Non-loopback Host header rejected.")
+
+    client_host = request.client.host if request.client else ""
+    if client_host not in _LOCALHOST_CLIENT_HOSTS:
+        raise HTTPException(status_code=403, detail="Remote access to settings is forbidden.")
+
+    origin = request.headers.get("origin")
+    if origin is not None and not _LOOPBACK_ORIGIN_RE.match(origin.strip()):
+        raise HTTPException(status_code=403, detail="Cross-origin settings access is forbidden.")
+
+    referer = request.headers.get("referer")
+    if referer is not None and not _is_loopback_url(referer):
+        raise HTTPException(status_code=403, detail="Cross-site referer rejected.")
+
+    if not require_mutation_proof:
+        return
+
+    configured_token = os.environ.get("RADAR_SETTINGS_TOKEN", "").strip()
+    expected_token = configured_token or _LOCAL_SETTINGS_TOKEN
+    provided_token = request.headers.get("x-radar-local-token", "")
+    has_valid_token = bool(provided_token) and hmac.compare_digest(provided_token, expected_token)
+    has_loopback_origin = bool(origin and _LOOPBACK_ORIGIN_RE.match(origin.strip()))
+
+    if configured_token:
+        if not has_valid_token:
+            raise HTTPException(status_code=403, detail="Valid X-Radar-Local-Token required.")
+    elif not (has_valid_token or has_loopback_origin):
+        raise HTTPException(
+            status_code=403,
+            detail="Settings updates require X-Radar-Local-Token or an explicit loopback Origin.",
+        )
 
 
 def _save_env_updates(updates: dict[str, str]) -> None:
@@ -384,17 +451,20 @@ def get_sources() -> list[dict[str, Any]]:
 
 
 @app.get("/api/portfolio")
-def get_portfolio(user_key: str = "default_user") -> dict[str, Any]:
+def get_portfolio(
+    user_key: str = "default_user",
+    refresh_ai: bool = Query(False, description="True ise canlı AI portföy değerlendirmesi çalıştırır"),
+) -> dict[str, Any]:
     """Portföy taktiksel varlık dağılımı ve 'Şundan Çık ➔ Şuna Geç' yönlendirmeleri."""
     weights = get_user_portfolio_weights(user_key=user_key)
-    return compute_tactical_copilot(current_weights=weights)
+    return compute_tactical_copilot(current_weights=weights, refresh_ai=refresh_ai)
 
 
 @app.post("/api/portfolio")
 def update_portfolio(payload: PortfolioUpdateRequest) -> dict[str, Any]:
     """Kullanıcının portföy ağırlıklarını günceller ve yeni taktiksel öneri üretir."""
     saved_weights = save_user_portfolio_weights(weights=payload.weights, user_key=payload.user_key)
-    return compute_tactical_copilot(current_weights=saved_weights)
+    return compute_tactical_copilot(current_weights=saved_weights, refresh_ai=payload.refresh_ai)
 
 
 @app.get("/api/memory")
@@ -466,11 +536,9 @@ def create_agent_memo(payload: AgentMemoCreateRequest) -> dict[str, Any]:
 # In-App Dynamic LLM & API Key Configuration Endpoints
 # ---------------------------------------------------------------------------
 
-@app.get("/api/settings")
-def get_runtime_settings() -> dict[str, Any]:
-    """Uygulama içerisinden dinamik olarak modelleri ve API anahtar durumlarını okur."""
+def _build_masked_settings_payload(include_local_token: bool = False) -> dict[str, Any]:
     s = get_macro_settings()
-    return {
+    payload: dict[str, Any] = {
         "gemini_api_key_masked": _mask_key(s.GEMINI_API_KEY),
         "gemini_api_key_set": bool(s.GEMINI_API_KEY and len(s.GEMINI_API_KEY) > 5),
         "gemini_model": s.GEMINI_MODEL,
@@ -498,13 +566,23 @@ def get_runtime_settings() -> dict[str, Any]:
             ],
         },
     }
+    if include_local_token:
+        payload["local_token"] = os.environ.get("RADAR_SETTINGS_TOKEN", "").strip() or _LOCAL_SETTINGS_TOKEN
+    return payload
+
+
+@app.get("/api/settings")
+def get_runtime_settings(request: Request) -> dict[str, Any]:
+    """Uygulama içerisinden dinamik olarak modelleri ve maskelenmiş API anahtar durumlarını okur."""
+    _require_local_settings_access(request, require_mutation_proof=False)
+    return _build_masked_settings_payload(include_local_token=True)
 
 
 @app.post("/api/settings")
-def update_runtime_settings(payload: SettingsUpdateRequest) -> dict[str, Any]:
-    """API anahtarlarını ve model tercihlerini canlı günceller ve .env dosyasına yazar."""
+def update_runtime_settings(payload: SettingsUpdateRequest, request: Request) -> dict[str, Any]:
+    """API anahtarlarını ve model tercihlerini yalnızca yetkili yerel isteklerle günceller."""
+    _require_local_settings_access(request, require_mutation_proof=True)
     updates: dict[str, str] = {}
-    current_settings = get_macro_settings()
 
     if payload.gemini_api_key and "..." not in payload.gemini_api_key and "****" not in payload.gemini_api_key:
         updates["GEMINI_API_KEY"] = payload.gemini_api_key.strip()
@@ -528,13 +606,14 @@ def update_runtime_settings(payload: SettingsUpdateRequest) -> dict[str, Any]:
         "status": "success",
         "message": "Ayarlar başarıyla kaydedildi ve çalışma zamanına anında uygulandı.",
         "updated_keys": list(updates.keys()),
-        "current": get_runtime_settings(),
+        "current": _build_masked_settings_payload(include_local_token=False),
     }
 
 
 @app.post("/api/settings/test")
-def test_runtime_credentials(payload: SettingsTestRequest) -> dict[str, Any]:
-    """Belirtilen API anahtarı ve modelin canlı bağlantısını test eder."""
+def test_runtime_credentials(payload: SettingsTestRequest, request: Request) -> dict[str, Any]:
+    """Belirtilen API anahtarı ve modelin canlı bağlantısını yerel erişimle test eder."""
+    _require_local_settings_access(request, require_mutation_proof=True)
     current_settings = get_macro_settings()
     key = payload.api_key
     if not key or "..." in key or "****" in key:
@@ -556,8 +635,9 @@ def _run_ingest_worker(category: str | None, jurisdiction: str | None, batch_siz
     """Arka planda veri çekme ve Türkiye odaklı analiz işçisi."""
     global ingest_status
     with ingest_lock:
-        ingest_status["is_running"] = True
-        ingest_status["last_error"] = None
+        with ingest_state_lock:
+            ingest_status["is_running"] = True
+            ingest_status["last_error"] = None
         try:
             pipeline = MacroImpactPipeline()
             sources = pipeline.get_sources(category=category, jurisdiction=jurisdiction)
@@ -565,20 +645,17 @@ def _run_ingest_worker(category: str | None, jurisdiction: str | None, batch_siz
                 s["limit"] = batch_size
 
             stats = pipeline.run(source_configs=sources, batch_size=batch_size * 2)
-            # Bekleyen kuyruk öğelerini de erit
-            extra_stats = pipeline.process_queue(batch_size=batch_size * 2)
-            stats["processing"]["evaluated"] += extra_stats.get("evaluated", 0)
-            stats["processing"]["analyzed"] += extra_stats.get("analyzed", 0)
-            stats["processing"]["prefiltered_skipped"] += extra_stats.get("prefiltered_skipped", 0)
 
-            import datetime
-            ingest_status["last_run"] = datetime.datetime.now().isoformat()
-            ingest_status["last_stats"] = stats
+            with ingest_state_lock:
+                ingest_status["last_run"] = datetime.now(timezone.utc).isoformat()
+                ingest_status["last_stats"] = stats
         except Exception as exc:
             logger.error("İstihbarat çekme hatası: %s", exc)
-            ingest_status["last_error"] = str(exc)
+            with ingest_state_lock:
+                ingest_status["last_error"] = str(exc)
         finally:
-            ingest_status["is_running"] = False
+            with ingest_state_lock:
+                ingest_status["is_running"] = False
 
 
 @app.post("/api/ingest")
@@ -587,11 +664,13 @@ def trigger_ingest(
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """İstihbarat çekme ve analiz döngüsünü tetikler."""
-    if ingest_status["is_running"]:
-        return {
-            "status": "already_running",
-            "message": "Halen arka planda devam eden aktif bir istihbarat döngüsü mevcut.",
-        }
+    with ingest_state_lock:
+        if ingest_status["is_running"]:
+            return {
+                "status": "already_running",
+                "message": "Halen arka planda devam eden aktif bir istihbarat döngüsü mevcut.",
+            }
+        ingest_status["is_running"] = True
 
     background_tasks.add_task(
         _run_ingest_worker,
@@ -619,7 +698,8 @@ if (WEB_DIR / "index.html").exists():
 
     @app.get("/{full_path:path}")
     def serve_static_fallback(full_path: str):
-        target_file = WEB_DIR / full_path
-        if target_file.is_file():
+        web_root = WEB_DIR.resolve()
+        target_file = (WEB_DIR / full_path).resolve()
+        if target_file.is_relative_to(web_root) and target_file.is_file():
             return FileResponse(target_file)
         return FileResponse(WEB_DIR / "index.html")

@@ -32,12 +32,15 @@ class BasePipeline(ABC):
         include_keywords: list[str] | None = None,
         exclude_keywords: list[str] | None = None,
         min_content_length: int = 60,
+        source_names: list[str] | None = None,
     ):
         self.pipeline_name = pipeline_name
         self.llm_engine = llm_engine or LLMEngine()
         self.include_keywords = include_keywords
         self.exclude_keywords = exclude_keywords
         self.min_content_length = min_content_length
+        self.source_names = list(source_names) if source_names is not None else None
+        self._ingested_source_names: set[str] = set()
 
     # -----------------------------------------------------------------------
     # Step 1: Ingestion & Deduplication
@@ -52,12 +55,17 @@ class BasePipeline(ABC):
         with get_session() as session:
             for config in source_configs:
                 strategy = config.get("strategy", "rss")
+                src_name = config.get("source_name")
+                if src_name:
+                    self._ingested_source_names.add(src_name)
                 try:
                     fetcher = FetcherRegistry.get_fetcher(strategy)
                     raw_items = fetcher.fetch(config)
                     stats["total_fetched"] += len(raw_items)
 
                     for item in raw_items:
+                        if item.source_name:
+                            self._ingested_source_names.add(item.source_name)
                         _, is_new = save_raw_item(session, item)
                         if is_new:
                             stats["new_saved"] += 1
@@ -92,14 +100,30 @@ class BasePipeline(ABC):
     # -----------------------------------------------------------------------
     # Step 3: Analysis & Processing
     # -----------------------------------------------------------------------
-    def process_queue(self, batch_size: int = 20) -> dict[str, int]:
+    def _effective_source_names(self, source_names: list[str] | None = None) -> list[str] | None:
+        if source_names is not None:
+            return list(source_names)
+        if self.source_names is not None:
+            return sorted(set(self.source_names) | self._ingested_source_names)
+        return None
+
+    def process_queue(
+        self,
+        batch_size: int = 20,
+        source_names: list[str] | None = None,
+    ) -> dict[str, int]:
         """
         Process pending unprocessed RawData items through pre-filter and LLM extraction.
         """
         stats = {"evaluated": 0, "analyzed": 0, "prefiltered_skipped": 0, "errors": 0}
+        scoped_sources = self._effective_source_names(source_names)
 
         with get_session() as session:
-            unprocessed_items = get_unprocessed_raw_data(session, limit=batch_size)
+            unprocessed_items = get_unprocessed_raw_data(
+                session,
+                limit=batch_size,
+                source_names=scoped_sources,
+            )
 
             for item in unprocessed_items:
                 stats["evaluated"] += 1
@@ -221,8 +245,12 @@ class BasePipeline(ABC):
     ) -> dict[str, Any]:
         """Run full cycle: Ingestion followed by processing."""
         ingest_stats = {}
+        scoped_sources: list[str] | None = None
         if source_configs:
             ingest_stats = self.ingest(source_configs)
+            run_sources = [c["source_name"] for c in source_configs if c.get("source_name")]
+            if run_sources:
+                scoped_sources = sorted(set(run_sources) | set(self.source_names or []))
 
-        process_stats = self.process_queue(batch_size=batch_size)
+        process_stats = self.process_queue(batch_size=batch_size, source_names=scoped_sources)
         return {"ingestion": ingest_stats, "processing": process_stats}
